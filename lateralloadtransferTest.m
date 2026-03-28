@@ -1,6 +1,6 @@
 %% LAT LOAD TRANSFER
 clear;clc
-param;
+paramR26;
 
 
 %% Constant LAT g
