@@ -65,7 +65,7 @@ grid on
 lat_g = 1;
 
 GLTf = ((car.m*weight_distribution/100*9.81)*lat_g*front.RC)/car.track;
-GLTr = ((car.m*(1-weight_distribution/100)*9.81)*lat_g*front.RC)/car.track;
+GLTr = ((car.m*(1-weight_distribution/100)*9.81)*lat_g*rear.RC)/car.track;
 
 % Elastic Load Transfer 
 
