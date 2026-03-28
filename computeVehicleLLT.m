@@ -19,8 +19,8 @@ MoTecData;
 %% ── Extract Signals ──────────────────────────────────────────────────────────
 
 % Lateral acceleration
-lat_g_time = data.Average_Lateral__G_.Time;
-lat_g_vec  = data.Average_Lateral__G_.Value;
+lat_g_time = data.Average_Lateral_G.Time;
+lat_g_vec  = data.Average_Lateral_G.Value;
 
 % Vehicle speed (used for axle delay computation)
 spd_time   = data.Vehicle_Speed_Value.Time;
