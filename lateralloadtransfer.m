@@ -67,16 +67,21 @@ lat_g = 1;
 GLTf = ((car.m*weight_distribution/100*9.81)*lat_g*front.RC)/car.track;
 GLTr = ((car.m*(1-weight_distribution/100)*9.81)*lat_g*front.RC)/car.track;
 
-% Elastic Load Transfer
+% Elastic Load Transfer 
 
 ELTf_spring = x(:, 1)*front.k_roll;
 ELTf_damper = x(:, 2)*front.cs_roll;
 
+ELTr_spring = x(:, 3)*rear.k_roll;
+ELTr_damper = x(:, 4)*rear.cs_roll;
+
 GLTf = ones(length(ELTf_damper), 1)*GLTf;
+GLTr = ones(length(ELTr_damper), 1)*GLTr;
 
 % Total Load Transfer
 
 TLTf = ELTf_spring+ELTf_damper+GLTf;
+TLTr = ELTr_spring+ELTr_damper+GLTr;
 
 % Plotting Load Transfer
 
@@ -94,3 +99,35 @@ ylabel('Load Transfer (N)')
 legend('Front Elastic Spring','Front Elastic Damper', 'Front Geometric', ...
     'Front Total Load Transer')
 grid on
+
+figure(4);
+plot(t, ELTr_spring, 'LineWidth', 1.5)
+hold on
+plot(t, ELTr_damper, 'LineWidth', 1.5)
+hold on 
+plot(t, GLTr, 'LineWidth', 1.5)
+hold on 
+plot(t, TLTr, 'LineWidth', 1.5)
+
+xlabel('Time (s)')
+ylabel('Load Transfer (N)')
+legend('Rear Elastic Spring','Rear Elastic Damper', 'Rear Geometric', ...
+    'Rear Total Load Transer')
+grid on
+
+% Check
+Total_LLT = ones(length(ELTf_damper), 1) * ((lat_g*g*car.m*car.cgh)/car.track);
+
+figure(5);
+plot(t, TLTf, 'LineWidth', 1.5)
+hold on 
+plot(t, TLTr, 'LineWidth', 1.5)
+hold on
+plot(t, TLTf+TLTr,'LineWidth', 1.5)
+hold on
+plot(t, Total_LLT, 'LineWidth', 1.5)
+
+xlabel('Time (s)')
+ylabel('Load Transfer (N)')
+legend('Total Lateral Load Transfer Front', 'Total Lateral Load Transfer Rear', ...
+    'Front & Rear Combined Total', 'Total Lateral Load Transfer Car')
