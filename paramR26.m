@@ -32,8 +32,8 @@ rear.springs = [200, 225, 250, 300];
 front.ARB = [527.36, 644.1] * 180/pi; % Minimum to maximum value 
 rear.ARB = [505.68, 771.59] * 180/pi; % of ARB stiffness [Nm/rad of roll]
 
-front.ks = front.springs(4) * 175.12684; % spring rate
-rear.ks = rear.springs(4) * 175.12684;
+front.ks = front.springs(2) * 175.12684; % spring rate
+rear.ks = rear.springs(1) * 175.12684;
 
 front.cs = 5000;
 rear.cs = 3000;
@@ -58,8 +58,8 @@ front.cs_roll = 0.5*front.cs*car.track^2;
 rear.cs_roll = 0.5*rear.cs*car.track^2;
 
 [front.target_ARB, rear.target_ARB] = targetARBstiffness(50, front, rear);
-front.k_roll = front.ks_roll + front.target_ARB;
-rear.k_roll = rear.ks_roll + rear.target_ARB;
+front.k_roll = front.ks_roll %+ front.target_ARB;
+rear.k_roll = rear.ks_roll %+ rear.target_ARB;
 
 %% Natural Frequency and Critical Damping
 % frontsprung.omega = (1/(2*pi)) * sqrt(front.Kr/car.m_sprung);
