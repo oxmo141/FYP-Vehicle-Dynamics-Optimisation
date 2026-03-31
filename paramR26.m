@@ -58,8 +58,8 @@ front.cs_roll = 0.5*front.cs*car.track^2;
 rear.cs_roll = 0.5*rear.cs*car.track^2;
 
 [front.target_ARB, rear.target_ARB] = targetARBstiffness(50, front, rear);
-front.k_roll = front.ks_roll %+ front.target_ARB;
-rear.k_roll = rear.ks_roll %+ rear.target_ARB;
+front.k_roll = front.ks_roll + front.target_ARB;
+rear.k_roll = rear.ks_roll + rear.target_ARB;
 
 %% Natural Frequency and Critical Damping
 % frontsprung.omega = (1/(2*pi)) * sqrt(front.Kr/car.m_sprung);
