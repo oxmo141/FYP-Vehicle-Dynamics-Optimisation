@@ -26,8 +26,11 @@ rearsprung.m = (0.5 * ((100-weight_distribution)/100) * car.m) - rearunsprung.m;
 %% Chassis and Suspension Stiffness 
 car.TR = (3047.62 + 2912.586)/2 * 180/pi; 
 
-front.springs = [200, 225, 250, 300];
+front.springs = [200, 225, 250, 300]; % Collection of springs to use
 rear.springs = [200, 225, 250, 300];
+
+front.ARB = [527.36, 644.1] * 180/pi; % Minimum to maximum value 
+rear.ARB = [505.68, 771.59] * 180/pi; % of ARB stiffness [Nm/rad of roll]
 
 front.ks = front.springs(4) * 175.12684; % spring rate
 rear.ks = rear.springs(4) * 175.12684;
@@ -53,11 +56,6 @@ rear.ks_roll = 0.5*rear.kw*car.track^2;
 
 front.cs_roll = 0.5*front.cs*car.track^2;
 rear.cs_roll = 0.5*rear.cs*car.track^2;
-
-front.ARB = 0;
-rear.ARB = 0;
-front.k_roll = front.ks_roll+front.ARB;
-rear.k_roll = rear.ks_roll+rear.ARB;
 
 %% Natural Frequency and Critical Damping
 % frontsprung.omega = (1/(2*pi)) * sqrt(front.Kr/car.m_sprung);
