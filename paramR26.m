@@ -2,7 +2,10 @@
 g = 9.81;
 
 %% Distributions
-weight_distribution = 50.95; %front bias
+car.front_m = 67+66;
+car.rear_m = 66.5+64.5;
+car.m = car.front_m + car.rear_m;
+weight_distribution = car.front_m/car.m; %front bias
 
 %% Unsprung mass of 1 corner
 frontunsprung.m = 12.15;
@@ -11,8 +14,7 @@ rearunsprung.m = 13.35;
 %% Car/ Sprung (Appendix A: diagram of car parameters)
 car.wheelbase = 1.558;
 car.track = 1.21;
-car.cgh = 0.256;
-car.m = 270;
+car.cgh = 0.3;
 car.r_wheel = 0.23707;
 car.m_sprung = car.m - 2*frontunsprung.m - 2*rearunsprung.m;
 
@@ -35,8 +37,8 @@ rear.ARB = [505.68, 771.59] * 180/pi; % of ARB stiffness [Nm/rad of roll]
 front.ks = front.springs(2) * 175.12684; % spring rate
 rear.ks = rear.springs(1) * 175.12684;
 
-front.cs = 5000;
-rear.cs = 3000;
+front.cs = 4050.8468 * 2/ (car.track)^2;
+rear.cs = 3705.0427 * 2/ (car.track)^2;
 
 car.Kt = (10^3)/0.0122; % tyre radial rate
 front.MR = 1.0; % motion ratio of coil over

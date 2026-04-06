@@ -28,14 +28,14 @@ vehicle.wgt_dist = weight_distribution / 100;
 % Pass car, front, rear as parameters to avoid scope issues
 function dxdt = eom(~, x, suspension, vehicle, LAT_G, car, front, rear, frontunsprung, rearunsprung)
     [~, M] = roll_angle(LAT_G, car, front, rear, frontunsprung, rearunsprung);
-    
+
     I = 182.24965;
     dxdt = zeros(4, 1);
-    
+
     % Front roll dynamics
     dxdt(1) = x(2);
     dxdt(2) = -(suspension.kf/I)*x(1) - (suspension.cf/I)*x(2) + M(1)/I;
-    
+
     % Rear roll dynamics
     dxdt(3) = x(4);
     dxdt(4) = -(suspension.kr/I)*x(3) - (suspension.cr/I)*x(4) + M(2)/I;
@@ -77,7 +77,7 @@ function plot_load_transfer(t, ELT_spring, ELT_damper, GLT, TLT, location)
     plot(t, ELT_damper, 'LineWidth', 1.5, 'DisplayName', 'Elastic Damper');
     plot(t, GLT, 'LineWidth', 1.5, 'DisplayName', 'Geometric');
     plot(t, TLT, 'LineWidth', 1.5, 'DisplayName', 'Total Load Transfer');
-    
+
     xlabel('Time (s)');
     ylabel('Load Transfer (N)');
     title(sprintf('%s Load Transfer Breakdown', location));
