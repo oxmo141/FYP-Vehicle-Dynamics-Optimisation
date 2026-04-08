@@ -1,4 +1,4 @@
-%% LATERAL LOAD TRANSFER ANALYSIS - IMPROVED VERSION
+%% LATERAL LOAD TRANSFER ANALYSIS
 clear; clc;
 paramR26;  % This loads car, front, rear, etc.
 
@@ -124,3 +124,4 @@ ylabel('Load Transfer (N)');
 title('Total Lateral Load Transfer Verification');
 legend('Location', 'best');
 grid on;
+

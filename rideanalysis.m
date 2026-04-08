@@ -338,3 +338,6 @@ function applyDarkAxes(ax, col_grid, col_txt)
     grid(ax, 'on');
     hold(ax, 'off');
 end
+
+% Get all open figure handles
+figHandles = findall(0, 'Type', 'figure');

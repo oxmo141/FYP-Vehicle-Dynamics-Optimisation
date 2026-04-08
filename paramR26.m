@@ -18,12 +18,12 @@ car.cgh = 0.3;
 car.r_wheel = 0.23707;
 car.m_sprung = car.m - 2*frontunsprung.m - 2*rearunsprung.m;
 
-car.b = (car.wheelbase * car.m * weight_distribution/100) / car.m;
+car.b = (car.wheelbase * car.m * weight_distribution) / car.m;
 car.a = car.wheelbase - car.b;
 
 %% Sprung mass of 1 corner
-frontsprung.m = (0.5 * (weight_distribution/100) * car.m) - frontunsprung.m;
-rearsprung.m = (0.5 * ((100-weight_distribution)/100) * car.m) - rearunsprung.m;
+frontsprung.m = (0.5 * (weight_distribution) * car.m) - frontunsprung.m;
+rearsprung.m = (0.5 * ((100-weight_distribution)) * car.m) - rearunsprung.m;
 
 %% Chassis and Suspension Stiffness 
 car.TR = (3047.62 + 2912.586)/2 * 180/pi; 

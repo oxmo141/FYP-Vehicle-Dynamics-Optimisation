@@ -3,7 +3,9 @@
 clear;clc
 
 [t, TLTf, TLTr, Total_LLT, roll_angle, front_roll_out, rear_roll_out] = computeVehicleLLT();
-
+staticload = (198+66) * 9.81 /4
+averageTLTf = mean(TLTf)
+averageTLTr = mean(TLTr)
 %% PLOTTING
 MoTecData;
 paramR26;
@@ -91,22 +93,23 @@ grid on
 % legend('Total Lateral Load Transfer Front Raw', ...
 %     'Total Lateral Load Transfer Front Smoothened')
 
-%% AERO DOWNIES
-% linear pods
-FL_value = data.Damper_Front_Left_Linear.Value;
-FL_time = data.Damper_Front_Left_Linear.Time;
+% %% AERO DOWNIES
+% % linear pods
+% FL_value = data.Damper_Front_Left_Linear.Value;
+% FL_time = data.Damper_Front_Left_Linear.Time;
+% 
+% FR_value = data.Damper_Front_Right_Linear.Value;
+% FR_time = data.Damper_Front_Right_Linear.Time;
+% 
+% 
+% % Interpolate
+% FL_interp = interp1(FL_time, FL_value, t, 'linear', 'extrap');
+% FR_interp = interp1(FR_time, FR_value, t, 'linear', 'extrap');
+% 
+% figure(4);
+% plot(t, FL_interp, 'r', 'LineWidth', 1.5);
+% hold on
+% plot(t, FR_interp, 'b', 'LineWidth', 1.5);
+% hold on
+% plot(t, front_roll_out*car.track - 10.4, 'g', 'LineWidth', 1.5);
 
-FR_value = data.Damper_Front_Right_Linear.Value;
-FR_time = data.Damper_Front_Right_Linear.Time;
-
-
-% Interpolate
-FL_interp = interp1(FL_time, FL_value, t, 'linear', 'extrap');
-FR_interp = interp1(FR_time, FR_value, t, 'linear', 'extrap');
-
-figure(4);
-plot(t, FL_interp, 'r', 'LineWidth', 1.5);
-hold on
-plot(t, FR_interp, 'b', 'LineWidth', 1.5);
-hold on
-plot(t, front_roll_out*car.track - 10.4, 'g', 'LineWidth', 1.5);
