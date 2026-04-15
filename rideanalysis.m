@@ -23,14 +23,14 @@ a    = car.a;            % CG to front axle         [m]
 b    = car.b;            % CG to rear  axle         [m]
 L    = car.wheelbase;            % Wheelbase                [m]
 
-kf_axle   = 2 * front.kw;         % Front wheel/suspension stiffness [N/m]
-kr_axle   = 2 * rear.kw;          % Rear  wheel/suspension stiffness [N/m]
+kf_axle   = 2 * front.Kr;         % Front wheel/suspension stiffness [N/m]
+kr_axle   = 2 * rear.Kr;          % Rear  wheel/suspension stiffness [N/m]
 cf_axle   = 2 * front.cs;         % Front damping coefficient        [N*s/m]
 cr_axle   = 2 * rear.cs;          % Rear  damping coefficient        [N*s/m]
 
 %% ---- Derived Properties ----------------------------------------
 % Pitch stiffness & damping for reference
-K_pitch   = kf_axle*a^2 + kr_axle*b^2;
+K_pitch   = kf_axle*a^2 + kr_axle*b^2; % [Nm/rad]
 C_pitch   = cf_axle*a^2 + cr_axle*b^2;
 omega_n   = sqrt(K_pitch / Iy);
 zeta      = C_pitch / (2*sqrt(K_pitch * Iy));
@@ -52,9 +52,9 @@ end
 %  Road profile seen by each tyre: half-sine bump
 %  z_road(t) = (H/2)*(1 - cos(2*pi*V*t / Lbump))  for 0 <= t <= Lbump/V
 %
-V_vehicle = 35 * 1000/3600;          % Vehicle forward speed     [m/s]
-H_bump    = 0.04;        % Bump height               [m]
-L_bump    = 0.5;         % Bump length               [m]
+V_vehicle = 35.9 * 1000/3600;          % Vehicle forward speed     [m/s]
+H_bump    = 0.03;        % Bump height               [m]
+L_bump    = 0.2;         % Bump length               [m]
 
 t_bump_dur = L_bump / V_vehicle;     % Duration of bump passage   [s]
 t_delay_r  = L / V_vehicle;          % Rear axle time delay       [s]
@@ -80,7 +80,7 @@ X0 = [0; 0; 0; 0];
 
 %% ---- Time Integration Settings ---------------------------------
 t_start = 0;
-t_end   = 1;       % Long enough to capture transient decay   [s]
+t_end   = 0.5;       % Long enough to capture transient decay   [s]
 dt      = 0.001;     % Fine step for accuracy                   [s]
 
 t_vec = t_start : dt : t_end;

@@ -5,8 +5,8 @@ paramR26;  % This loads car, front, rear, etc.
 %% -----------------------------------------------------------------------
 %  CONSTANTS AND PARAMETERS
 %% -----------------------------------------------------------------------
-LAT_G         = 1;           % Lateral acceleration (g)
-ROLL_INERTIA  = 182.24965;   % Roll inertia (kg*m^2)
+LAT_G         = 1.8;           % Lateral acceleration (g)
+ROLL_INERTIA  = 182.24965;     % Roll inertia (kg*m^2)
 TIME_SPAN     = [0 1];
 INITIAL_STATE = [0 0 0 0];
 
@@ -40,10 +40,6 @@ M_ode        = M_ss_matrix(1:2);
 
 %% -----------------------------------------------------------------------
 %  OVERSHOOT TARGETS TO OPTIMISE FOR
-%  Each entry defines:
-%    label           - display name for plots/reports
-%    target_overshoot - desired fractional overshoot (0=minimal, 0.05=5%, etc.)
-%    penalty_weight   - how hard the optimizer penalises deviation from target
 %% -----------------------------------------------------------------------
 overshoot_cases = struct( ...
     'label',            {'Minimal (≈0%)', '5% Overshoot', '10% Overshoot', '15% Overshoot', '20% Overshoot'}, ...
@@ -60,6 +56,12 @@ for k = 1:num_cases
     results(k).label          = overshoot_cases(k).label;
     results(k).optimal_cf     = NaN;
     results(k).optimal_cr     = NaN;
+    results(k).optimal_cf_lin = NaN;   % Linear damping front (Ns/m)
+    results(k).optimal_cr_lin = NaN;   % Linear damping rear  (Ns/m)
+    results(k).omega_n_f      = NaN;   % Front natural frequency (rad/s)
+    results(k).omega_n_r      = NaN;   % Rear  natural frequency (rad/s)
+    results(k).zeta_f         = NaN;   % Front damping ratio (-)
+    results(k).zeta_r         = NaN;   % Rear  damping ratio (-)
     results(k).min_cost       = NaN;
     results(k).overshoot_f    = NaN;
     results(k).overshoot_r    = NaN;
@@ -79,19 +81,16 @@ end
 
 %% -----------------------------------------------------------------------
 %  NESTED FUNCTION: eom
-%  Equations of motion — all parameters passed explicitly.
 %% -----------------------------------------------------------------------
 function dxdt = eom(~, x_ode, current_suspension, roll_inertia, m_ode)
     I    = roll_inertia;
     dxdt = zeros(4, 1);
 
-    % Front roll dynamics
     dxdt(1) = x_ode(2);
     dxdt(2) = -(current_suspension.kf / I) * x_ode(1) ...
               -(current_suspension.cf / I) * x_ode(2) ...
               + m_ode(1) / I;
 
-    % Rear roll dynamics
     dxdt(3) = x_ode(4);
     dxdt(4) = -(current_suspension.kr / I) * x_ode(3) ...
               -(current_suspension.cr / I) * x_ode(4) ...
@@ -100,13 +99,6 @@ end
 
 %% -----------------------------------------------------------------------
 %  NESTED FUNCTION: objective_function
-%  For MINIMAL case (target_overshoot = 0):
-%    Minimises raw overshoot directly.
-%
-%  For TARGETED cases (5%, 10%, 15%, 20%):
-%    Penalises the SQUARED DEVIATION from the desired overshoot target.
-%    This guides the optimizer toward a specific overshoot level
-%    rather than just minimising it.
 %% -----------------------------------------------------------------------
 function [cost, overshoot_vals, delay_vals] = objective_function( ...
         damping_coeffs, ...
@@ -123,64 +115,48 @@ function [cost, overshoot_vals, delay_vals] = objective_function( ...
     cf_val = damping_coeffs(1);
     cr_val = damping_coeffs(2);
 
-    % Penalise non-physical negative damping
     if cf_val < 0 || cr_val < 0
-        cost          = inf;
+        cost           = inf;
         overshoot_vals = [inf, inf];
         delay_vals     = [inf, inf];
         return;
     end
 
-    % Build current iteration suspension struct
     current_suspension    = base_suspension;
     current_suspension.cf = cf_val;
     current_suspension.cr = cr_val;
 
-    % Solve ODE
     opts_ode = odeset('RelTol', 1e-6, 'AbsTol', 1e-8);
     [t_opt, x_opt] = ode45( ...
         @(t, x_ode) eom(t, x_ode, current_suspension, roll_inertia, m_ode), ...
         time_span, initial_state, opts_ode);
 
-    % ----- Front Axle Metrics -----
+    % Front metrics
     peak_f = max(x_opt(:, 1));
     if tgt_phi_f ~= 0
         overshoot_f = max(0, (peak_f - tgt_phi_f) / tgt_phi_f);
     else
         overshoot_f = 0;
     end
-
     idx_f = find(x_opt(:, 1) >= 0.9 * tgt_phi_f, 1, 'first');
-    if ~isempty(idx_f)
-        delay_f = t_opt(idx_f);
-    else
-        delay_f = time_span(2);
-    end
+    if ~isempty(idx_f); delay_f = t_opt(idx_f); else; delay_f = time_span(2); end
 
-    % ----- Rear Axle Metrics -----
+    % Rear metrics
     peak_r = max(x_opt(:, 3));
     if tgt_phi_r ~= 0
         overshoot_r = max(0, (peak_r - tgt_phi_r) / tgt_phi_r);
     else
         overshoot_r = 0;
     end
-
     idx_r = find(x_opt(:, 3) >= 0.9 * tgt_phi_r, 1, 'first');
-    if ~isempty(idx_r)
-        delay_r = t_opt(idx_r);
-    else
-        delay_r = time_span(2);
-    end
+    if ~isempty(idx_r); delay_r = t_opt(idx_r); else; delay_r = time_span(2); end
 
     overshoot_vals = [overshoot_f, overshoot_r];
     delay_vals     = [delay_f,     delay_r];
 
-    % ----- Cost Strategy -----
     if target_overshoot == 0
-        % MINIMAL: directly minimise overshoot + small delay penalty
         cost = mean(overshoot_vals) + 0.05 * sum(delay_vals);
     else
-        % TARGETED: penalise squared deviation from the desired overshoot level
         deviation_f = (overshoot_f - target_overshoot)^2;
         deviation_r = (overshoot_r - target_overshoot)^2;
         cost = penalty_weight * (deviation_f + deviation_r) + 0.05 * sum(delay_vals);
@@ -188,7 +164,7 @@ function [cost, overshoot_vals, delay_vals] = objective_function( ...
 end
 
 %% -----------------------------------------------------------------------
-%  OPTIMISATION LOOP — runs once per overshoot case
+%  OPTIMISATION LOOP
 %% -----------------------------------------------------------------------
 initial_damping_guess = [suspension.cf, suspension.cr];
 options = optimset('Display', 'off', 'TolX', 1e-6, 'TolFun', 1e-6, 'MaxIter', 2000);
@@ -200,10 +176,9 @@ fprintf('========================================================\n');
 for k = 1:num_cases
     fprintf('\n[%d/%d] Optimising for: %s ...\n', k, num_cases, overshoot_cases(k).label);
 
-    tgt_os      = overshoot_cases(k).target_overshoot;
-    pen_weight  = overshoot_cases(k).penalty_weight;
+    tgt_os     = overshoot_cases(k).target_overshoot;
+    pen_weight = overshoot_cases(k).penalty_weight;
 
-    % Anonymous function captures all fixed parameters + current target
     obj_fn = @(d) objective_function( ...
         d, suspension, TIME_SPAN, INITIAL_STATE, ...
         ROLL_INERTIA, M_ode, target_phi_f, target_phi_r, ...
@@ -211,12 +186,30 @@ for k = 1:num_cases
 
     [opt_d, min_c] = fminsearch(obj_fn, initial_damping_guess, options);
 
-    % Store raw results
+    % ---- Store rotational damping ----
     results(k).optimal_cf = opt_d(1);
     results(k).optimal_cr = opt_d(2);
     results(k).min_cost   = min_c;
 
-    % Re-run ODE with optimal damping to get time histories
+    % ---- Linear damping (Ns/m): c_lin = c_rot * 2 / track ----
+    track = vehicle.track;
+    results(k).optimal_cf_lin = opt_d(1) * 2 / track^2;
+    results(k).optimal_cr_lin = opt_d(2) * 2 / track^2;
+
+    % ---- Natural frequencies (rad/s): wn = sqrt(k / I) ----
+    omega_n_f = sqrt(suspension.kf / ROLL_INERTIA);
+    omega_n_r = sqrt(suspension.kr / ROLL_INERTIA);
+    results(k).omega_n_f = omega_n_f;
+    results(k).omega_n_r = omega_n_r;
+
+    % ---- Damping ratios: zeta = c / (2 * sqrt(k * I)) ----
+    %      Equivalent to: zeta = c / (2 * I * wn)
+    c_crit_f = 2 * sqrt(suspension.kf * ROLL_INERTIA);
+    c_crit_r = 2 * sqrt(suspension.kr * ROLL_INERTIA);
+    results(k).zeta_f = opt_d(1) / c_crit_f;
+    results(k).zeta_r = opt_d(2) / c_crit_r;
+
+    % ---- Re-run ODE with optimal damping ----
     susp_opt    = suspension;
     susp_opt.cf = opt_d(1);
     susp_opt.cr = opt_d(2);
@@ -226,7 +219,6 @@ for k = 1:num_cases
         @(t, x_ode) eom(t, x_ode, susp_opt, ROLL_INERTIA, M_ode), ...
         TIME_SPAN, INITIAL_STATE, opts_ode);
 
-    % Get final metrics via objective_function
     [~, final_os, final_dl] = objective_function( ...
         opt_d, suspension, TIME_SPAN, INITIAL_STATE, ...
         ROLL_INERTIA, M_ode, target_phi_f, target_phi_r, ...
@@ -239,7 +231,7 @@ for k = 1:num_cases
     results(k).t           = t_sim;
     results(k).x           = x_sim;
 
-    % Load Transfer Calculations for this case
+    % ---- Load Transfer ----
     GLT_f = (vehicle.mass * vehicle.wgt_dist     * 9.81 * LAT_G * susp_opt.RC_f) / vehicle.track;
     GLT_r = (vehicle.mass * (1-vehicle.wgt_dist) * 9.81 * LAT_G * susp_opt.RC_r) / vehicle.track;
 
@@ -259,37 +251,41 @@ end
 %% -----------------------------------------------------------------------
 %  PRINT RESULTS TABLE
 %% -----------------------------------------------------------------------
-fprintf('\n========================================================\n');
-fprintf('                  OPTIMISATION SUMMARY\n');
-fprintf('========================================================\n');
-fprintf('%-18s | %10s | %10s | %10s | %10s | %10s | %10s\n', ...
-    'Case', 'cf (N-m-s/rad)', 'cr (N-m-s/rad)', 'OS_f (%)', 'OS_r (%)', 'Rise_f (s)', 'Rise_r (s)');
-fprintf('%s\n', repmat('-', 1, 88));
+fprintf('\n');
+fprintf('==========================================================================================================================================\n');
+fprintf('                                                    OPTIMISATION SUMMARY\n');
+fprintf('==========================================================================================================================================\n');
+fprintf('%-18s | %14s | %14s | %13s | %13s | %10s | %10s | %9s | %9s | %10s | %10s | %10s | %10s\n', ...
+    'Case', ...
+    'cf (N-m-s/rad)', 'cr (N-m-s/rad)', ...
+    'cf_lin (Ns/m)',  'cr_lin (Ns/m)', ...
+    'wn_f (r/s)',     'wn_r (rad/s)', ...
+    'zeta_f',         'zeta_r', ...
+    'OS_f (%)',        'OS_r (%)', ...
+    'Rise_f (s)',      'Rise_r (s)');
+fprintf('%s\n', repmat('-', 1, 158));
 
 for k = 1:num_cases
-    fprintf('%-18s | %10.4f | %10.4f | %10.2f | %10.2f | %10.4f | %10.4f\n', ...
+    fprintf('%-18s | %14.4f | %14.4f | %13.4f | %13.4f | %10.4f | %10.4f | %9.4f | %9.4f | %10.2f | %10.2f | %10.4f | %10.4f\n', ...
         results(k).label, ...
-        results(k).optimal_cf, ...
-        results(k).optimal_cr, ...
-        results(k).overshoot_f * 100, ...
-        results(k).overshoot_r * 100, ...
-        results(k).delay_f, ...
-        results(k).delay_r);
+        results(k).optimal_cf,     results(k).optimal_cr, ...
+        results(k).optimal_cf_lin, results(k).optimal_cr_lin, ...
+        results(k).omega_n_f,      results(k).omega_n_r, ...
+        results(k).zeta_f,         results(k).zeta_r, ...
+        results(k).overshoot_f * 100, results(k).overshoot_r * 100, ...
+        results(k).delay_f,        results(k).delay_r);
 end
-fprintf('========================================================\n');
+fprintf('==========================================================================================================================================\n');
 
 %% -----------------------------------------------------------------------
 %  FIGURE 1: Front Roll Angle Comparison
 %% -----------------------------------------------------------------------
-figure(1); clf;
-hold on;
+figure(1); clf; hold on;
 for k = 1:num_cases
-    plot(results(k).t, results(k).x(:,1)*180/pi, ...
-        'LineWidth', 2, ...
-        'DisplayName', results(k).label);
+    plot(results(k).t, results(k).x(:,1)*180/pi, 'LineWidth', 2, 'DisplayName', results(k).label);
 end
 yline(target_phi_f*180/pi, 'k--', 'LineWidth', 1.5, ...
-    'DisplayName', sprintf('Front SS Target (%.3f°)', target_phi_f*180/pi));
+    'DisplayName', sprintf('Front SS Target (%.3f deg)', target_phi_f*180/pi));
 xlabel('Time (s)'); ylabel('Roll Angle (deg)');
 title('Front Roll Angle — All Overshoot Cases');
 legend('Location', 'best'); grid on; hold off;
@@ -297,15 +293,12 @@ legend('Location', 'best'); grid on; hold off;
 %% -----------------------------------------------------------------------
 %  FIGURE 2: Rear Roll Angle Comparison
 %% -----------------------------------------------------------------------
-figure(2); clf;
-hold on;
+figure(2); clf; hold on;
 for k = 1:num_cases
-    plot(results(k).t, results(k).x(:,3)*180/pi, ...
-        'LineWidth', 2, ...
-        'DisplayName', results(k).label);
+    plot(results(k).t, results(k).x(:,3)*180/pi, 'LineWidth', 2, 'DisplayName', results(k).label);
 end
 yline(target_phi_r*180/pi, 'k--', 'LineWidth', 1.5, ...
-    'DisplayName', sprintf('Rear SS Target (%.3f°)', target_phi_r*180/pi));
+    'DisplayName', sprintf('Rear SS Target (%.3f deg)', target_phi_r*180/pi));
 xlabel('Time (s)'); ylabel('Roll Angle (deg)');
 title('Rear Roll Angle — All Overshoot Cases');
 legend('Location', 'best'); grid on; hold off;
@@ -313,12 +306,9 @@ legend('Location', 'best'); grid on; hold off;
 %% -----------------------------------------------------------------------
 %  FIGURE 3: Front Angular Velocity Comparison
 %% -----------------------------------------------------------------------
-figure(3); clf;
-hold on;
+figure(3); clf; hold on;
 for k = 1:num_cases
-    plot(results(k).t, results(k).x(:,2)*180/pi, ...
-        'LineWidth', 2, ...
-        'DisplayName', results(k).label);
+    plot(results(k).t, results(k).x(:,2)*180/pi, 'LineWidth', 2, 'DisplayName', results(k).label);
 end
 xlabel('Time (s)'); ylabel('Angular Velocity (deg/s)');
 title('Front Roll Angular Velocity — All Overshoot Cases');
@@ -327,12 +317,9 @@ legend('Location', 'best'); grid on; hold off;
 %% -----------------------------------------------------------------------
 %  FIGURE 4: Rear Angular Velocity Comparison
 %% -----------------------------------------------------------------------
-figure(4); clf;
-hold on;
+figure(4); clf; hold on;
 for k = 1:num_cases
-    plot(results(k).t, results(k).x(:,4)*180/pi, ...
-        'LineWidth', 2, ...
-        'DisplayName', results(k).label);
+    plot(results(k).t, results(k).x(:,4)*180/pi, 'LineWidth', 2, 'DisplayName', results(k).label);
 end
 xlabel('Time (s)'); ylabel('Angular Velocity (deg/s)');
 title('Rear Roll Angular Velocity — All Overshoot Cases');
@@ -341,12 +328,9 @@ legend('Location', 'best'); grid on; hold off;
 %% -----------------------------------------------------------------------
 %  FIGURE 5: Front Total Load Transfer Comparison
 %% -----------------------------------------------------------------------
-figure(5); clf;
-hold on;
+figure(5); clf; hold on;
 for k = 1:num_cases
-    plot(results(k).t, results(k).TLT_f, ...
-        'LineWidth', 2, ...
-        'DisplayName', results(k).label);
+    plot(results(k).t, results(k).TLT_f, 'LineWidth', 2, 'DisplayName', results(k).label);
 end
 xlabel('Time (s)'); ylabel('Load Transfer (N)');
 title('Front Total Lateral Load Transfer — All Overshoot Cases');
@@ -355,22 +339,18 @@ legend('Location', 'best'); grid on; hold off;
 %% -----------------------------------------------------------------------
 %  FIGURE 6: Rear Total Load Transfer Comparison
 %% -----------------------------------------------------------------------
-figure(6); clf;
-hold on;
+figure(6); clf; hold on;
 for k = 1:num_cases
-    plot(results(k).t, results(k).TLT_r, ...
-        'LineWidth', 2, ...
-        'DisplayName', results(k).label);
+    plot(results(k).t, results(k).TLT_r, 'LineWidth', 2, 'DisplayName', results(k).label);
 end
 xlabel('Time (s)'); ylabel('Load Transfer (N)');
 title('Rear Total Lateral Load Transfer — All Overshoot Cases');
 legend('Location', 'best'); grid on; hold off;
 
 %% -----------------------------------------------------------------------
-%  FIGURES 7-10: Per-Case Load Transfer Breakdown (Front + Rear)
+%  FIGURES 7-16: Per-Case Load Transfer Breakdown (Front + Rear)
 %% -----------------------------------------------------------------------
 for k = 1:num_cases
-    % Front breakdown
     figure(7 + (k-1)*2 + 1); clf;
     plot(results(k).t, results(k).ELT_f_spring, 'LineWidth', 1.5, 'DisplayName', 'ELT Spring');
     hold on;
@@ -381,7 +361,6 @@ for k = 1:num_cases
     title(sprintf('Front Load Transfer Breakdown — %s', results(k).label));
     legend('Location', 'best'); grid on; hold off;
 
-    % Rear breakdown
     figure(7 + (k-1)*2 + 2); clf;
     plot(results(k).t, results(k).ELT_r_spring, 'LineWidth', 1.5, 'DisplayName', 'ELT Spring');
     hold on;
@@ -394,27 +373,62 @@ for k = 1:num_cases
 end
 
 %% -----------------------------------------------------------------------
-%  FIGURE 15: Bar Chart — Optimal Damping Coefficients
+%  FIGURE 17: Bar Chart — Optimal Damping Coefficients (Rotational)
 %% -----------------------------------------------------------------------
-figure(15); clf;
+figure(17); clf;
 case_labels = {results.label};
 cf_vals     = [results.optimal_cf];
 cr_vals     = [results.optimal_cr];
+x_pos       = 1:num_cases;
+bar_width   = 0.35;
 
-x_pos = 1:num_cases;
-bar_width = 0.35;
 bar(x_pos - bar_width/2, cf_vals, bar_width, 'FaceColor', [0.2 0.5 0.8], 'DisplayName', 'Front cf');
 hold on;
 bar(x_pos + bar_width/2, cr_vals, bar_width, 'FaceColor', [0.8 0.3 0.2], 'DisplayName', 'Rear cr');
 set(gca, 'XTick', x_pos, 'XTickLabel', case_labels);
 ylabel('Damping Coefficient (N-m-s/rad)');
-title('Optimal Damping Coefficients — All Cases');
+title('Optimal Damping Coefficients — All Cases (Rotational)');
 legend('Location', 'best'); grid on; hold off;
 
 %% -----------------------------------------------------------------------
-%  FIGURE 16: Bar Chart — Achieved Overshoot
+%  FIGURE 18: Bar Chart — Optimal Damping Coefficients (Linear)
 %% -----------------------------------------------------------------------
-figure(16); clf;
+figure(18); clf;
+cf_lin_vals = [results.optimal_cf_lin];
+cr_lin_vals = [results.optimal_cr_lin];
+
+bar(x_pos - bar_width/2, cf_lin_vals, bar_width, 'FaceColor', [0.2 0.5 0.8], 'DisplayName', 'Front cf_lin');
+hold on;
+bar(x_pos + bar_width/2, cr_lin_vals, bar_width, 'FaceColor', [0.8 0.3 0.2], 'DisplayName', 'Rear cr_lin');
+set(gca, 'XTick', x_pos, 'XTickLabel', case_labels);
+ylabel('Damping Coefficient (Ns/m)');
+title('Optimal Damping Coefficients — All Cases (Linear, Ns/m)');
+legend('Location', 'best'); grid on; hold off;
+
+%% -----------------------------------------------------------------------
+%  FIGURE 19: Bar Chart — Damping Ratio (zeta) and Natural Frequency
+%% -----------------------------------------------------------------------
+figure(19); clf;
+
+% --- Subplot 1: Damping Ratio zeta ---
+subplot(2, 1, 1);
+zeta_f_vals = [results.zeta_f];
+zeta_r_vals = [results.zeta_r];
+bar(x_pos - bar_width/2, zeta_f_vals, bar_width, 'FaceColor', [0.3 0.7 0.5], 'DisplayName', 'Front zeta');
+hold on;
+bar(x_pos + bar_width/2, zeta_r_vals, bar_width, 'FaceColor', [0.8 0.5 0.1], 'DisplayName', 'Rear zeta');
+yline(1.0, 'k--', 'Critical (zeta=1)', 'LineWidth', 1.5);
+yline(0.7, 'b:',  'zeta=0.7',          'LineWidth', 1.2);
+set(gca, 'XTick', x_pos, 'XTickLabel', case_labels);
+ylabel('Damping Ratio zeta (-)');
+title('Damping Ratio — All Cases');
+legend('Location', 'best'); grid on; hold off;
+sgtitle('System Dynamics: Damping Ratio — All Overshoot Cases');
+
+%% -----------------------------------------------------------------------
+%  FIGURE 20: Achieved Overshoot vs Target
+%% -----------------------------------------------------------------------
+figure(20); clf;
 os_f_vals = [results.overshoot_f] * 100;
 os_r_vals = [results.overshoot_r] * 100;
 
@@ -431,38 +445,24 @@ title('Achieved Overshoot vs Target — All Cases');
 legend('Location', 'best'); grid on; hold off;
 
 %% -----------------------------------------------------------------------
-%  FIGURE 17: Bar Chart — Achieved Overshoot
-%% SENSITIVITY STUDY: Overshoot Percentage vs Rise Time
-% Extract overshoot percentages and rise times
-overshoot_f_values = [results.overshoot_f] * 100;  % Front overshoot in %
-overshoot_r_values = [results.overshoot_r] * 100;  % Rear overshoot in %
-rise_time_f_values = [results.delay_f];              % Front rise time in seconds
-rise_time_r_values = [results.delay_r];              % Rear rise time in seconds
+%  FIGURE 21: Sensitivity Study — Overshoot vs Rise Time
+%% -----------------------------------------------------------------------
+overshoot_f_values = [results.overshoot_f] * 100;
+overshoot_r_values = [results.overshoot_r] * 100;
+rise_time_f_values = [results.delay_f];
+rise_time_r_values = [results.delay_r];
 
-% Create a new figure to visualize the relationship
-figure(17); clf;
-
-% Plot Front Overshoot vs. Rise Time
-subplot(2, 1, 1);  % Create a 2-row, 1-column subplot
-hold on;
+figure(21); clf;
+subplot(2, 1, 1); hold on;
 plot(rise_time_f_values, overshoot_f_values, '-o', 'LineWidth', 2, 'DisplayName', 'Front Overshoot');
-xlabel('Rise Time (s)');
-ylabel('Overshoot (%)');
+xlabel('Rise Time (s)'); ylabel('Overshoot (%)');
 title('Front Overshoot vs. Rise Time');
-grid on;
-legend('Location', 'best');
+grid on; legend('Location', 'best');
 
-% Plot Rear Overshoot vs. Rise Time
-subplot(2, 1, 2);  % Create a 2-row, 1-column subplot
-hold on;
+subplot(2, 1, 2); hold on;
 plot(rise_time_r_values, overshoot_r_values, '-o', 'LineWidth', 2, 'DisplayName', 'Rear Overshoot');
-xlabel('Rise Time (s)');
-ylabel('Overshoot (%)');
+xlabel('Rise Time (s)'); ylabel('Overshoot (%)');
 title('Rear Overshoot vs. Rise Time');
-grid on;
-legend('Location', 'best');
+grid on; legend('Location', 'best');
 
-% Display the figure
 sgtitle('Sensitivity Study: Overshoot Percentage vs. Rise Time');
-
-

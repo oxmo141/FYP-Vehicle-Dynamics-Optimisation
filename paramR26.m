@@ -8,8 +8,8 @@ car.m = car.front_m + car.rear_m;
 weight_distribution = car.front_m/car.m; %front bias
 
 %% Unsprung mass of 1 corner
-frontunsprung.m = 12.15;
-rearunsprung.m = 13.35;
+frontunsprung.m = 9.3778;
+rearunsprung.m = 9.247;
 
 %% Car/ Sprung (Appendix A: diagram of car parameters)
 car.wheelbase = 1.558;
@@ -34,8 +34,8 @@ rear.springs = [200, 225, 250, 300];
 front.ARB = [527.36, 644.1] * 180/pi; % Minimum to maximum value 
 rear.ARB = [505.68, 771.59] * 180/pi; % of ARB stiffness [Nm/rad of roll]
 
-front.ks = front.springs(2) * 175.12684; % spring rate
-rear.ks = rear.springs(1) * 175.12684;
+front.ks = front.springs(3) * 175.12684; % spring rate
+rear.ks = rear.springs(2) * 175.12684;
 
 front.cs = 4050.8468 * 2/ (car.track)^2;
 rear.cs = 3705.0427 * 2/ (car.track)^2;
@@ -62,6 +62,11 @@ rear.cs_roll = 0.5*rear.cs*car.track^2;
 [front.target_ARB, rear.target_ARB] = targetARBstiffness(50, front, rear);
 front.k_roll = front.ks_roll + front.target_ARB;
 rear.k_roll = rear.ks_roll + rear.target_ARB;
+
+front.ARB_setting = (front.target_ARB - min(front.ARB)) / ...
+                    (min(front.ARB) + max(front.ARB)); 
+rear.ARB_setting = (rear.target_ARB - min(rear.ARB)) / ...
+                    (min(rear.ARB) + max(rear.ARB)); 
 
 %% Natural Frequency and Critical Damping
 % frontsprung.omega = (1/(2*pi)) * sqrt(front.Kr/car.m_sprung);

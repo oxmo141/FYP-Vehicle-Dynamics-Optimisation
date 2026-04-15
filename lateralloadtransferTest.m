@@ -22,7 +22,7 @@ vehicle = struct();
 vehicle.mass = car.m;
 vehicle.track = car.track;
 vehicle.cgh = car.cgh;
-vehicle.wgt_dist = weight_distribution / 100;
+vehicle.wgt_dist = weight_distribution;
 
 %% Equations of Motion
 % Pass car, front, rear as parameters to avoid scope issues
@@ -85,12 +85,23 @@ function plot_load_transfer(t, ELT_spring, ELT_damper, GLT, TLT, location)
     grid on;
 end
 
+%% Steady-State Angle Validation
+roll_steadystate = roll_angle(LAT_G, car,front,rear,frontunsprung,rearunsprung) * 180/pi;
+
 %% Generate Plots
 % Roll angles
 figure(1);
 plot(t, x(:,1)*180/pi, 'LineWidth', 1.5, 'DisplayName', 'Front');
 hold on;
 plot(t, x(:,3)*180/pi, 'LineWidth', 1.5, 'DisplayName', 'Rear');
+hold on;
+plot(t, roll_steadystate(1) * ones(size(t)), ...
+    'LineStyle', ':', 'LineWidth', 1.5, ...
+    'DisplayName', 'Front Steady-State');
+hold on;
+plot(t, roll_steadystate(2) * ones(size(t)), ...
+    'LineStyle', ':', 'LineWidth', 1.5, ...
+    'DisplayName', 'Rear Steady-State');
 xlabel('Time (s)');
 ylabel('Roll Angle (deg)');
 title('Roll Angles vs Time');
