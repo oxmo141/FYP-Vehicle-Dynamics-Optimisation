@@ -1,12 +1,4 @@
 function [ avw, rvwv, del, pv ] = fun_05_dblwb_kin( phi, u, p )
-% rotation matrix wheel rim / ref-sys
-% actual position of wheel center
-% rotation angle arround king pin
-% partial velocities
-% kinematics of a double wishbone suspension
-% rotation angle of lower control arm
-% rack displacement
-% structure of model parameter
 
 % lower wishbone
 rab = p.rvbk-p.rvak; eab = rab/norm(rab); eabs = uty_skewsym(eab);
@@ -27,13 +19,13 @@ apsi = edeede + (eye(3,3)-edeede)*cos(psi) + edes*sin(psi);
 rvcv = p.rvak + racv;
 rdfv = apsi*(p.rvfk-p.rvdk); rvfv = p.rvdk + rdfv; rcfv = rvfv-rvcv;
 be = uty_trigon(rcfk(1),rcfk(3),rcfv(1));
-abe = [ cos(be) 0 sin(be) ; ...
-    0 1 0 ; ...
-    -sin(be) 0 cos(be) ];
+abe = [ cos(be), 0, sin(be) ; ...
+        0,       1, 0       ; ...
+       -sin(be), 0, cos(be) ];
 al = uty_trigon(rcfv(2),rcfv(3),rcfk(2));
-aal = [ 1 0 0 ; ...
-    0 cos(al) -sin(al) ; ...
-    0 sin(al) cos(al) ] ;
+aal = [ 1, 0,       0      ; ...
+        0, cos(al), -sin(al) ; ...
+        0, sin(al),  cos(al) ];
 
 % rotation arround king pin
 rvrv = p.rvrk + [ 0; u; 0 ]; rrcv = rvcv-rvrv; rrcht=rrcv.'*aal*abe;
@@ -47,10 +39,24 @@ adel=ecfecf+(eye(3,3)-ecfecf)*cos(del)+ecfs*sin(del);
 % wheel body orientation and position
 avw = aal*abe*adel; rcwv = avw*(p.rvwk-p.rvck); rvwv = rvcv + rcwv;
 
+% ========== FIXED SECTION ==========
 % partial derivatives: dpsi/dphi, dal/dphi, dbe/dphi
 exvv=[1;0;0]; eyalv=aal*[0;1;0];
-a = [ cross(ede,rdfv)-cross(exvv,rcfv)-cross(eyalv,rcfv) ];
-c = a \ cross(eab,racv); dpsidphi=c(1); daldphi=c(2); dbedphi=c(3);
+
+% Build 3x3 matrix equation: A * [dpsidphi; daldphi; dbedphi] = RHS
+% Each row represents a constraint equation
+A = [ cross(ede, rdfv)' - cross(exvv, rcfv)' - cross(eyalv, rcfv)' ; ...
+      cross(ede, rdfv)' ; ...
+      cross(exvv, rcfv)' ];
+
+RHS = cross(eab, racv);
+
+% Solve for derivatives
+derivs = A \ RHS;
+dpsidphi = derivs(1);
+daldphi = derivs(2);
+dbedphi = derivs(3);
+% ===================================
 
 % partial derivatives: ddel/dphi, ddel/du
 eyvv=[0;1;0]; ecfv=rcfv/norm(rcfv);
