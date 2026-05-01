@@ -5,7 +5,7 @@ paramR26;  % This loads car, front, rear, etc.
 %% -----------------------------------------------------------------------
 %  CONSTANTS AND PARAMETERS
 %% -----------------------------------------------------------------------
-LAT_G         = 1.8;           % Lateral acceleration (g)
+LAT_G         = 1.3;           % Lateral acceleration (g)
 ROLL_INERTIA  = 182.24965;     % Roll inertia (kg*m^2)
 TIME_SPAN     = [0 1];
 INITIAL_STATE = [0 0 0 0];
@@ -56,12 +56,12 @@ for k = 1:num_cases
     results(k).label          = overshoot_cases(k).label;
     results(k).optimal_cf     = NaN;
     results(k).optimal_cr     = NaN;
-    results(k).optimal_cf_lin = NaN;   % Linear damping front (Ns/m)
-    results(k).optimal_cr_lin = NaN;   % Linear damping rear  (Ns/m)
-    results(k).omega_n_f      = NaN;   % Front natural frequency (rad/s)
-    results(k).omega_n_r      = NaN;   % Rear  natural frequency (rad/s)
-    results(k).zeta_f         = NaN;   % Front damping ratio (-)
-    results(k).zeta_r         = NaN;   % Rear  damping ratio (-)
+    results(k).optimal_cf_lin = NaN;
+    results(k).optimal_cr_lin = NaN;
+    results(k).omega_n_f      = NaN;
+    results(k).omega_n_r      = NaN;
+    results(k).zeta_f         = NaN;
+    results(k).zeta_r         = NaN;
     results(k).min_cost       = NaN;
     results(k).overshoot_f    = NaN;
     results(k).overshoot_r    = NaN;
@@ -131,7 +131,6 @@ function [cost, overshoot_vals, delay_vals] = objective_function( ...
         @(t, x_ode) eom(t, x_ode, current_suspension, roll_inertia, m_ode), ...
         time_span, initial_state, opts_ode);
 
-    % Front metrics
     peak_f = max(x_opt(:, 1));
     if tgt_phi_f ~= 0
         overshoot_f = max(0, (peak_f - tgt_phi_f) / tgt_phi_f);
@@ -141,7 +140,6 @@ function [cost, overshoot_vals, delay_vals] = objective_function( ...
     idx_f = find(x_opt(:, 1) >= 0.9 * tgt_phi_f, 1, 'first');
     if ~isempty(idx_f); delay_f = t_opt(idx_f); else; delay_f = time_span(2); end
 
-    % Rear metrics
     peak_r = max(x_opt(:, 3));
     if tgt_phi_r ~= 0
         overshoot_r = max(0, (peak_r - tgt_phi_r) / tgt_phi_r);
@@ -186,30 +184,24 @@ for k = 1:num_cases
 
     [opt_d, min_c] = fminsearch(obj_fn, initial_damping_guess, options);
 
-    % ---- Store rotational damping ----
     results(k).optimal_cf = opt_d(1);
     results(k).optimal_cr = opt_d(2);
     results(k).min_cost   = min_c;
 
-    % ---- Linear damping (Ns/m): c_lin = c_rot * 2 / track ----
     track = vehicle.track;
     results(k).optimal_cf_lin = opt_d(1) * 2 / track^2;
     results(k).optimal_cr_lin = opt_d(2) * 2 / track^2;
 
-    % ---- Natural frequencies (rad/s): wn = sqrt(k / I) ----
     omega_n_f = sqrt(suspension.kf / ROLL_INERTIA);
     omega_n_r = sqrt(suspension.kr / ROLL_INERTIA);
     results(k).omega_n_f = omega_n_f;
     results(k).omega_n_r = omega_n_r;
 
-    % ---- Damping ratios: zeta = c / (2 * sqrt(k * I)) ----
-    %      Equivalent to: zeta = c / (2 * I * wn)
     c_crit_f = 2 * sqrt(suspension.kf * ROLL_INERTIA);
     c_crit_r = 2 * sqrt(suspension.kr * ROLL_INERTIA);
     results(k).zeta_f = opt_d(1) / c_crit_f;
     results(k).zeta_r = opt_d(2) / c_crit_r;
 
-    % ---- Re-run ODE with optimal damping ----
     susp_opt    = suspension;
     susp_opt.cf = opt_d(1);
     susp_opt.cr = opt_d(2);
@@ -231,7 +223,6 @@ for k = 1:num_cases
     results(k).t           = t_sim;
     results(k).x           = x_sim;
 
-    % ---- Load Transfer ----
     GLT_f = (vehicle.mass * vehicle.wgt_dist     * 9.81 * LAT_G * susp_opt.RC_f) / vehicle.track;
     GLT_r = (vehicle.mass * (1-vehicle.wgt_dist) * 9.81 * LAT_G * susp_opt.RC_r) / vehicle.track;
 
@@ -278,80 +269,108 @@ end
 fprintf('==========================================================================================================================================\n');
 
 %% -----------------------------------------------------------------------
+%  HELPER: apply black theme to current axes
+%% -----------------------------------------------------------------------
+function apply_dark(ax)
+    set(ax, 'Color', 'k', 'XColor', 'w', 'YColor', 'w', ...
+            'GridColor', 'w', 'GridAlpha', 0.15, 'MinorGridColor', 'w');
+    ax.Title.Color  = 'w';
+    ax.XLabel.Color = 'w';
+    ax.YLabel.Color = 'w';
+    lg = ax.Legend;
+    if ~isempty(lg)
+        set(lg, 'Color', [0.1 0.1 0.1], 'TextColor', 'w', 'EdgeColor', 'w');
+    end
+end
+
+function fig = dark_figure(num)
+    fig = figure(num); clf;
+    set(fig, 'Color', 'k', 'InvertHardcopy', 'off');
+end
+
+%% -----------------------------------------------------------------------
 %  FIGURE 1: Front Roll Angle Comparison
 %% -----------------------------------------------------------------------
-figure(1); clf; hold on;
+dark_figure(1); hold on;
 for k = 1:num_cases
     plot(results(k).t, results(k).x(:,1)*180/pi, 'LineWidth', 2, 'DisplayName', results(k).label);
 end
-yline(target_phi_f*180/pi, 'k--', 'LineWidth', 1.5, ...
+yl = yline(target_phi_f*180/pi, '--', 'LineWidth', 1.5, ...
     'DisplayName', sprintf('Front SS Target (%.3f deg)', target_phi_f*180/pi));
+yl.Color = 'w';
 xlabel('Time (s)'); ylabel('Roll Angle (deg)');
 title('Front Roll Angle — All Overshoot Cases');
 legend('Location', 'best'); grid on; hold off;
+apply_dark(gca);
 
 %% -----------------------------------------------------------------------
 %  FIGURE 2: Rear Roll Angle Comparison
 %% -----------------------------------------------------------------------
-figure(2); clf; hold on;
+dark_figure(2); hold on;
 for k = 1:num_cases
     plot(results(k).t, results(k).x(:,3)*180/pi, 'LineWidth', 2, 'DisplayName', results(k).label);
 end
-yline(target_phi_r*180/pi, 'k--', 'LineWidth', 1.5, ...
+yl = yline(target_phi_r*180/pi, '--', 'LineWidth', 1.5, ...
     'DisplayName', sprintf('Rear SS Target (%.3f deg)', target_phi_r*180/pi));
+yl.Color = 'w';
 xlabel('Time (s)'); ylabel('Roll Angle (deg)');
 title('Rear Roll Angle — All Overshoot Cases');
 legend('Location', 'best'); grid on; hold off;
+apply_dark(gca);
 
 %% -----------------------------------------------------------------------
 %  FIGURE 3: Front Angular Velocity Comparison
 %% -----------------------------------------------------------------------
-figure(3); clf; hold on;
+dark_figure(3); hold on;
 for k = 1:num_cases
     plot(results(k).t, results(k).x(:,2)*180/pi, 'LineWidth', 2, 'DisplayName', results(k).label);
 end
 xlabel('Time (s)'); ylabel('Angular Velocity (deg/s)');
 title('Front Roll Angular Velocity — All Overshoot Cases');
 legend('Location', 'best'); grid on; hold off;
+apply_dark(gca);
 
 %% -----------------------------------------------------------------------
 %  FIGURE 4: Rear Angular Velocity Comparison
 %% -----------------------------------------------------------------------
-figure(4); clf; hold on;
+dark_figure(4); hold on;
 for k = 1:num_cases
     plot(results(k).t, results(k).x(:,4)*180/pi, 'LineWidth', 2, 'DisplayName', results(k).label);
 end
 xlabel('Time (s)'); ylabel('Angular Velocity (deg/s)');
 title('Rear Roll Angular Velocity — All Overshoot Cases');
 legend('Location', 'best'); grid on; hold off;
+apply_dark(gca);
 
 %% -----------------------------------------------------------------------
 %  FIGURE 5: Front Total Load Transfer Comparison
 %% -----------------------------------------------------------------------
-figure(5); clf; hold on;
+dark_figure(5); hold on;
 for k = 1:num_cases
     plot(results(k).t, results(k).TLT_f, 'LineWidth', 2, 'DisplayName', results(k).label);
 end
 xlabel('Time (s)'); ylabel('Load Transfer (N)');
 title('Front Total Lateral Load Transfer — All Overshoot Cases');
 legend('Location', 'best'); grid on; hold off;
+apply_dark(gca);
 
 %% -----------------------------------------------------------------------
 %  FIGURE 6: Rear Total Load Transfer Comparison
 %% -----------------------------------------------------------------------
-figure(6); clf; hold on;
+dark_figure(6); hold on;
 for k = 1:num_cases
     plot(results(k).t, results(k).TLT_r, 'LineWidth', 2, 'DisplayName', results(k).label);
 end
 xlabel('Time (s)'); ylabel('Load Transfer (N)');
 title('Rear Total Lateral Load Transfer — All Overshoot Cases');
 legend('Location', 'best'); grid on; hold off;
+apply_dark(gca);
 
 %% -----------------------------------------------------------------------
 %  FIGURES 7-16: Per-Case Load Transfer Breakdown (Front + Rear)
 %% -----------------------------------------------------------------------
 for k = 1:num_cases
-    figure(7 + (k-1)*2 + 1); clf;
+    dark_figure(7 + (k-1)*2 + 1);
     plot(results(k).t, results(k).ELT_f_spring, 'LineWidth', 1.5, 'DisplayName', 'ELT Spring');
     hold on;
     plot(results(k).t, results(k).ELT_f_damper, 'LineWidth', 1.5, 'DisplayName', 'ELT Damper');
@@ -360,8 +379,9 @@ for k = 1:num_cases
     xlabel('Time (s)'); ylabel('Load Transfer (N)');
     title(sprintf('Front Load Transfer Breakdown — %s', results(k).label));
     legend('Location', 'best'); grid on; hold off;
+    apply_dark(gca);
 
-    figure(7 + (k-1)*2 + 2); clf;
+    dark_figure(7 + (k-1)*2 + 2);
     plot(results(k).t, results(k).ELT_r_spring, 'LineWidth', 1.5, 'DisplayName', 'ELT Spring');
     hold on;
     plot(results(k).t, results(k).ELT_r_damper, 'LineWidth', 1.5, 'DisplayName', 'ELT Damper');
@@ -370,12 +390,13 @@ for k = 1:num_cases
     xlabel('Time (s)'); ylabel('Load Transfer (N)');
     title(sprintf('Rear Load Transfer Breakdown — %s', results(k).label));
     legend('Location', 'best'); grid on; hold off;
+    apply_dark(gca);
 end
 
 %% -----------------------------------------------------------------------
 %  FIGURE 17: Bar Chart — Optimal Damping Coefficients (Rotational)
 %% -----------------------------------------------------------------------
-figure(17); clf;
+dark_figure(17);
 case_labels = {results.label};
 cf_vals     = [results.optimal_cf];
 cr_vals     = [results.optimal_cr];
@@ -389,80 +410,223 @@ set(gca, 'XTick', x_pos, 'XTickLabel', case_labels);
 ylabel('Damping Coefficient (N-m-s/rad)');
 title('Optimal Damping Coefficients — All Cases (Rotational)');
 legend('Location', 'best'); grid on; hold off;
+apply_dark(gca);
 
 %% -----------------------------------------------------------------------
 %  FIGURE 18: Bar Chart — Optimal Damping Coefficients (Linear)
 %% -----------------------------------------------------------------------
-figure(18); clf;
+dark_figure(18);
 cf_lin_vals = [results.optimal_cf_lin];
 cr_lin_vals = [results.optimal_cr_lin];
 
-bar(x_pos - bar_width/2, cf_lin_vals, bar_width, 'FaceColor', [0.2 0.5 0.8], 'DisplayName', 'Front cf_lin');
+bar(x_pos - bar_width/2, cf_lin_vals, bar_width, 'FaceColor', [0.2 0.5 0.8], 'DisplayName', 'Front cf');
 hold on;
-bar(x_pos + bar_width/2, cr_lin_vals, bar_width, 'FaceColor', [0.8 0.3 0.2], 'DisplayName', 'Rear cr_lin');
+bar(x_pos + bar_width/2, cr_lin_vals, bar_width, 'FaceColor', [0.8 0.3 0.2], 'DisplayName', 'Rear cr');
 set(gca, 'XTick', x_pos, 'XTickLabel', case_labels);
 ylabel('Damping Coefficient (Ns/m)');
 title('Optimal Damping Coefficients — All Cases (Linear, Ns/m)');
 legend('Location', 'best'); grid on; hold off;
+apply_dark(gca);
 
 %% -----------------------------------------------------------------------
 %  FIGURE 19: Bar Chart — Damping Ratio (zeta) and Natural Frequency
 %% -----------------------------------------------------------------------
-figure(19); clf;
+fig19 = dark_figure(19);
 
-% --- Subplot 1: Damping Ratio zeta ---
 subplot(2, 1, 1);
 zeta_f_vals = [results.zeta_f];
 zeta_r_vals = [results.zeta_r];
 bar(x_pos - bar_width/2, zeta_f_vals, bar_width, 'FaceColor', [0.3 0.7 0.5], 'DisplayName', 'Front zeta');
 hold on;
 bar(x_pos + bar_width/2, zeta_r_vals, bar_width, 'FaceColor', [0.8 0.5 0.1], 'DisplayName', 'Rear zeta');
-yline(1.0, 'k--', 'Critical (zeta=1)', 'LineWidth', 1.5);
-yline(0.7, 'b:',  'zeta=0.7',          'LineWidth', 1.2);
+yl1 = yline(1.0, '--', 'Critical (zeta=1)', 'LineWidth', 1.5); yl1.Color = 'w';
+yl2 = yline(0.7, ':',  'zeta=0.7',          'LineWidth', 1.2); yl2.Color = 'w';
 set(gca, 'XTick', x_pos, 'XTickLabel', case_labels);
 ylabel('Damping Ratio zeta (-)');
 title('Damping Ratio — All Cases');
 legend('Location', 'best'); grid on; hold off;
-sgtitle('System Dynamics: Damping Ratio — All Overshoot Cases');
+apply_dark(gca);
+
+sg = sgtitle('System Dynamics: Damping Ratio — All Overshoot Cases');
+sg.Color = 'w';
 
 %% -----------------------------------------------------------------------
 %  FIGURE 20: Achieved Overshoot vs Target
 %% -----------------------------------------------------------------------
-figure(20); clf;
+dark_figure(20);
 os_f_vals = [results.overshoot_f] * 100;
 os_r_vals = [results.overshoot_r] * 100;
 
 bar(x_pos - bar_width/2, os_f_vals, bar_width, 'FaceColor', [0.2 0.7 0.4], 'DisplayName', 'Front OS%');
 hold on;
 bar(x_pos + bar_width/2, os_r_vals, bar_width, 'FaceColor', [0.9 0.6 0.1], 'DisplayName', 'Rear OS%');
-yline(5,  'b--', '5% Target',  'LineWidth', 1.2);
-yline(10, 'r--', '10% Target', 'LineWidth', 1.2);
-yline(15, 'm--', '15% Target', 'LineWidth', 1.2);
-yline(20, 'g--', '20% Target', 'LineWidth', 1.2);
+yl5  = yline(5,  '--', '5% Target',  'LineWidth', 1.2); yl5.Color  = [0.4 0.6 1.0];
+yl10 = yline(10, '--', '10% Target', 'LineWidth', 1.2); yl10.Color = [1.0 0.4 0.4];
+yl15 = yline(15, '--', '15% Target', 'LineWidth', 1.2); yl15.Color = [1.0 0.4 1.0];
+yl20 = yline(20, '--', '20% Target', 'LineWidth', 1.2); yl20.Color = [0.4 1.0 0.4];
 set(gca, 'XTick', x_pos, 'XTickLabel', case_labels);
 ylabel('Overshoot (%)');
 title('Achieved Overshoot vs Target — All Cases');
 legend('Location', 'best'); grid on; hold off;
+apply_dark(gca);
 
 %% -----------------------------------------------------------------------
-%  FIGURE 21: Sensitivity Study — Overshoot vs Rise Time
+%  FIGURE 21: Sensitivity Study — Overshoot vs Rise Time + Summary Table
 %% -----------------------------------------------------------------------
 overshoot_f_values = [results.overshoot_f] * 100;
 overshoot_r_values = [results.overshoot_r] * 100;
 rise_time_f_values = [results.delay_f];
 rise_time_r_values = [results.delay_r];
 
-figure(21); clf;
-subplot(2, 1, 1); hold on;
-plot(rise_time_f_values, overshoot_f_values, '-o', 'LineWidth', 2, 'DisplayName', 'Front Overshoot');
-xlabel('Rise Time (s)'); ylabel('Overshoot (%)');
-title('Front Overshoot vs. Rise Time');
-grid on; legend('Location', 'best');
+% --- Compute step-by-step % increase in rise time ---
+n = num_cases;
+rise_f = rise_time_f_values(:);
+rise_r = rise_time_r_values(:);
+os_f   = overshoot_f_values(:);
+os_r   = overshoot_r_values(:);
 
-subplot(2, 1, 2); hold on;
-plot(rise_time_r_values, overshoot_r_values, '-o', 'LineWidth', 2, 'DisplayName', 'Rear Overshoot');
-xlabel('Rise Time (s)'); ylabel('Overshoot (%)');
-title('Rear Overshoot vs. Rise Time');
-grid on; legend('Location', 'best');
+delta_rise_f = zeros(n, 1);
+delta_rise_r = zeros(n, 1);
+for i = 2:n
+    delta_rise_f(i) = 100 * (rise_f(i) - rise_f(i-1)) / rise_f(i-1);
+    delta_rise_r(i) = 100 * (rise_r(i) - rise_r(i-1)) / rise_r(i-1);
+end
 
-sgtitle('Sensitivity Study: Overshoot Percentage vs. Rise Time');
+cum_rise_f = zeros(n, 1);
+cum_rise_r = zeros(n, 1);
+for i = 2:n
+    cum_rise_f(i) = 100 * (rise_f(i) - rise_f(1)) / rise_f(1);
+    cum_rise_r(i) = 100 * (rise_r(i) - rise_r(1)) / rise_r(1);
+end
+
+% --- Print to command window ---
+fprintf('\n');
+fprintf('==================================================================================================\n');
+fprintf('         RISE TIME SENSITIVITY TABLE — %% Increase per 5%% Overshoot Step\n');
+fprintf('==================================================================================================\n');
+fprintf('%-18s | %10s | %10s | %14s | %14s | %14s | %14s\n', ...
+    'Case', 'OS_f (%)', 'OS_r (%)', 'Rise_f (s)', 'Rise_r (s)', 'D Rise_f (%)', 'D Rise_r (%)');
+fprintf('%s\n', repmat('-', 1, 100));
+for i = 1:n
+    if i == 1; df_str = 'baseline'; dr_str = 'baseline';
+    else
+        df_str = sprintf('%+.2f%%', delta_rise_f(i));
+        dr_str = sprintf('%+.2f%%', delta_rise_r(i));
+    end
+    fprintf('%-18s | %10.2f | %10.2f | %14.4f | %14.4f | %14s | %14s\n', ...
+        results(i).label, os_f(i), os_r(i), rise_f(i), rise_r(i), df_str, dr_str);
+end
+fprintf('%s\n', repmat('-', 1, 100));
+fprintf('%-18s | %10s | %10s | %14s | %14s | %14s | %14s\n', ...
+    'TOTAL (vs base)', '', '', ...
+    sprintf('%.4f', rise_f(end)), sprintf('%.4f', rise_r(end)), ...
+    sprintf('%+.2f%%', cum_rise_f(end)), sprintf('%+.2f%%', cum_rise_r(end)));
+fprintf('==================================================================================================\n');
+
+% --- Build table string data ---
+col_headers = {'Case', 'OS Front (%)', 'OS Rear (%)', ...
+               'Rise Front (s)', 'Rise Rear (s)', ...
+               'Delta Rise Front', 'Delta Rise Rear'};
+table_str = cell(n, 7);
+for i = 1:n
+    if i == 1; df_str = 'baseline'; dr_str = 'baseline';
+    else
+        df_str = sprintf('%+.2f%%', delta_rise_f(i));
+        dr_str = sprintf('%+.2f%%', delta_rise_r(i));
+    end
+    table_str{i,1} = results(i).label;
+    table_str{i,2} = sprintf('%.2f', os_f(i));
+    table_str{i,3} = sprintf('%.2f', os_r(i));
+    table_str{i,4} = sprintf('%.4f', rise_f(i));
+    table_str{i,5} = sprintf('%.4f', rise_r(i));
+    table_str{i,6} = df_str;
+    table_str{i,7} = dr_str;
+end
+
+% --- Figure 21: 3-panel layout (top-left, top-right, bottom table) ---
+fig21 = dark_figure(21);
+fig21.Position = [100, 100, 1300, 820];
+
+% Top-left: Front plot
+ax_f = subplot('Position', [0.06, 0.42, 0.42, 0.50]);
+hold(ax_f, 'on');
+plot(ax_f, rise_time_f_values, overshoot_f_values, '-o', ...
+    'LineWidth', 2, 'Color', 'c', 'DisplayName', 'Front Overshoot');
+xlabel(ax_f, 'Rise Time (s)'); ylabel(ax_f, 'Overshoot (%)');
+title(ax_f, 'Front Overshoot vs. Rise Time');
+grid(ax_f, 'on'); legend(ax_f, 'Location', 'best'); hold(ax_f, 'off');
+apply_dark(ax_f);
+
+% Top-right: Rear plot
+ax_r = subplot('Position', [0.55, 0.42, 0.42, 0.50]);
+hold(ax_r, 'on');
+plot(ax_r, rise_time_r_values, overshoot_r_values, '-o', ...
+    'LineWidth', 2, 'Color', 'm', 'DisplayName', 'Rear Overshoot');
+xlabel(ax_r, 'Rise Time (s)'); ylabel(ax_r, 'Overshoot (%)');
+title(ax_r, 'Rear Overshoot vs. Rise Time');
+grid(ax_r, 'on'); legend(ax_r, 'Location', 'best'); hold(ax_r, 'off');
+apply_dark(ax_r);
+
+sg21 = sgtitle('Sensitivity Study: Overshoot Percentage vs. Rise Time');
+sg21.Color = 'w';
+
+% Bottom: table axes occupying lower third
+ax_tbl = axes('Parent', fig21, ...
+              'Position', [0.01, 0.01, 0.98, 0.36], ...
+              'XLim', [0 1], 'YLim', [0 1], ...
+              'Color', 'k', 'XColor', 'k', 'YColor', 'k', ...
+              'TickLength', [0 0]);
+hold(ax_tbl, 'on');
+axis(ax_tbl, 'off');
+
+% Table layout in data coords [0,1]
+col_cx   = [0.09, 0.22, 0.31, 0.42, 0.53, 0.67, 0.81];
+header_y = 0.88;
+row_h    = 0.155;
+
+% Table title
+text(ax_tbl, 0.5, 0.97, 'Rise Time Sensitivity  -  % Increase per 5% Overshoot Step', ...
+    'HorizontalAlignment', 'center', ...
+    'Color', 'w', 'FontSize', 10, 'FontWeight', 'bold', 'FontName', 'Courier New');
+
+% Header background + text
+rectangle(ax_tbl, 'Position', [0.005, header_y - row_h*0.78, 0.99, row_h*0.82], ...
+    'FaceColor', [0.18 0.18 0.18], 'EdgeColor', [0.5 0.5 0.5], 'LineWidth', 1);
+for c = 1:7
+    text(ax_tbl, col_cx(c), header_y - row_h*0.30, col_headers{c}, ...
+        'HorizontalAlignment', 'center', ...
+        'Color', [1.0 0.85 0.2], 'FontSize', 8.5, ...
+        'FontWeight', 'bold', 'FontName', 'Courier New');
+end
+
+% Data rows
+for r = 1:n
+    y_top_row = header_y - r * row_h;
+    bg = [0.09 0.09 0.09] * (1 + mod(r,2)*0.5);
+    rectangle(ax_tbl, 'Position', [0.005, y_top_row - row_h*0.78, 0.99, row_h*0.82], ...
+        'FaceColor', bg, 'EdgeColor', [0.25 0.25 0.25], 'LineWidth', 0.5);
+
+    for c = 1:7
+        txt = table_str{r,c};
+        if c >= 6 && r > 1
+            num_val = str2double(strrep(strrep(txt,'%',''),'+',''));
+            if ~isnan(num_val) && num_val > 0;      tc = [0.3 1.0 0.3];
+            elseif ~isnan(num_val) && num_val < 0;  tc = [1.0 0.4 0.4];
+            else;                                    tc = 'w';
+            end
+        elseif c == 1;  tc = [0.55 0.85 1.0];
+        else;           tc = 'w';
+        end
+        text(ax_tbl, col_cx(c), y_top_row - row_h*0.30, txt, ...
+            'HorizontalAlignment', 'center', ...
+            'Color', tc, 'FontSize', 8.5, ...
+            'FontWeight', 'normal', 'FontName', 'Courier New');
+    end
+end
+
+% Bottom divider
+bottom_y = header_y - (n+1)*row_h + row_h*0.05;
+line(ax_tbl, [0.005, 0.995], [bottom_y, bottom_y], ...
+    'Color', [0.5 0.5 0.5], 'LineWidth', 1);
+
+hold(ax_tbl, 'off');

@@ -1,12 +1,16 @@
 %% LATERAL LOAD TRANSFER ANALYSIS
-clear; clc;
+clear; clc; close all
 paramR26;  % This loads car, front, rear, etc.
 
 %% Constants and Parameters
-LAT_G = 1;  % Lateral acceleration (g)
+LAT_G = 1.2;  % Lateral acceleration (g)
 ROLL_INERTIA = 182.24965;  % Roll inertia (kg*m^2)
 TIME_SPAN = [0 1];
 INITIAL_STATE = [0 0 0 0];
+
+% Report Start: Lateral Acceleration Constant
+fprintf('=== LATERAL LOAD TRANSFER ANALYSIS REPORT ===\n');
+fprintf('Constant Lateral Acceleration: %.2f g (%.2f m/s²)\n\n', LAT_G, LAT_G * 9.81);
 
 %% Extract and Pre-compute Suspension Parameters
 suspension = struct();
@@ -23,6 +27,36 @@ vehicle.mass = car.m;
 vehicle.track = car.track;
 vehicle.cgh = car.cgh;
 vehicle.wgt_dist = weight_distribution;
+
+%% Compute Steady-State Moments on Each Axle
+[~, M_steady] = roll_angle(LAT_G, car, front, rear, frontunsprung, rearunsprung);
+moment_front = M_steady(1);  % Front axle moment (N*m)
+moment_rear = M_steady(2);   % Rear axle moment (N*m)
+
+% Display moments
+fprintf('Front Axle Moment: %.2f N·m\n', moment_front);
+fprintf('Rear Axle Moment: %.2f N·m\n', moment_rear);
+fprintf('\n');
+
+%% Calculate Natural Frequencies and Damping Ratios
+I = ROLL_INERTIA;  % Shared roll inertia
+
+% Front
+omega_nf = sqrt(suspension.kf / I);  % Natural frequency (rad/s)
+c_cf = 2 * sqrt(suspension.kf * I);  % Critical damping coefficient (N*s/rad or equivalent)
+zeta_f = suspension.cf / c_cf;       % Damping ratio (dimensionless)
+
+% Rear
+omega_nr = sqrt(suspension.kr / I);  % Natural frequency (rad/s)
+c_cr = 2 * sqrt(suspension.kr * I);  % Critical damping coefficient (N*s/rad or equivalent)
+zeta_r = suspension.cr / c_cr;       % Damping ratio (dimensionless)
+
+% Display values
+fprintf('Front Natural Frequency: %.2f rad/s (%.2f Hz)\n', omega_nf, omega_nf / (2*pi));
+fprintf('Front Damping Ratio (zeta): %.3f\n', zeta_f);
+fprintf('Rear Natural Frequency: %.2f rad/s (%.2f Hz)\n', omega_nr, omega_nr / (2*pi));
+fprintf('Rear Damping Ratio (zeta): %.3f\n', zeta_r);
+fprintf('\n');
 
 %% Equations of Motion
 % Pass car, front, rear as parameters to avoid scope issues
@@ -44,6 +78,58 @@ end
 %% Solve ODE
 [t, x] = ode45(@(t,x) eom(t, x, suspension, vehicle, LAT_G, car, front, rear, frontunsprung, rearunsprung), ...
     TIME_SPAN, INITIAL_STATE);
+
+%% Steady-State Angle Validation
+roll_steadystate_rad = roll_angle(LAT_G, car,front,rear,frontunsprung,rearunsprung);
+roll_steadystate = roll_steadystate_rad * 180/pi;
+
+%% Calculate and Display Steady-State Values and Rise Times
+% Steady-state values (in degrees)
+fprintf('Front steady-state roll angle: %.4f deg\n', roll_steadystate(1));
+fprintf('Rear steady-state roll angle: %.4f deg\n', roll_steadystate(2));
+
+% Convert simulated roll angles to degrees
+roll_front_deg = x(:,1) * 180/pi;
+roll_rear_deg = x(:,3) * 180/pi;
+
+ss_front = roll_steadystate(1);
+ss_rear = roll_steadystate(2);
+
+% Rise time calculation (10% to 90% of steady-state value)
+% Assuming monotonic increase to steady-state (positive LAT_G)
+
+% Front rise time
+if ss_front > 0
+    idx_10f = find(roll_front_deg >= 0.1 * ss_front, 1, 'first');
+    idx_90f = find(roll_front_deg >= 0.9 * ss_front, 1, 'first');
+    if ~isempty(idx_10f) && ~isempty(idx_90f) && idx_90f > idx_10f
+        t10f = t(idx_10f);
+        t90f = t(idx_90f);
+        rise_time_front = t90f - t10f;
+        fprintf('Front rise time (10-90%%): %.4f s\n', rise_time_front);
+    else
+        fprintf('Front rise time not reliably detected (may not reach 90%% within time span).\n');
+    end
+else
+    fprintf('Front steady-state is non-positive; rise time not applicable.\n');
+end
+
+% Rear rise time
+if ss_rear > 0
+    idx_10r = find(roll_rear_deg >= 0.1 * ss_rear, 1, 'first');
+    idx_90r = find(roll_rear_deg >= 0.9 * ss_rear, 1, 'first');
+    if ~isempty(idx_10r) && ~isempty(idx_90r) && idx_90r > idx_10r
+        t10r = t(idx_10r);
+        t90r = t(idx_90r);
+        rise_time_rear = t90r - t10r;
+        fprintf('Rear rise time (10-90%%): %.4f s\n', rise_time_rear);
+    else
+        fprintf('Rear rise time not reliably detected (may not reach 90%% within time span).\n');
+    end
+else
+    fprintf('Rear steady-state is non-positive; rise time not applicable.\n');
+end
+fprintf('\n');
 
 %% Pre-calculate Load Transfers (Vectorized)
 % Geometric Load Transfer (GLT)
@@ -84,9 +170,6 @@ function plot_load_transfer(t, ELT_spring, ELT_damper, GLT, TLT, location)
     legend('Location', 'best');
     grid on;
 end
-
-%% Steady-State Angle Validation
-roll_steadystate = roll_angle(LAT_G, car,front,rear,frontunsprung,rearunsprung) * 180/pi;
 
 %% Generate Plots
 % Roll angles
@@ -135,4 +218,3 @@ ylabel('Load Transfer (N)');
 title('Total Lateral Load Transfer Verification');
 legend('Location', 'best');
 grid on;
-

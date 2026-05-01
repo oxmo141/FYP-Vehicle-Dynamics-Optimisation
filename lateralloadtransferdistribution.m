@@ -39,6 +39,8 @@ K_rear  = rear_spring' + rear_ARB;    % 4x100
 %% Create combined figure (Figure 17)
 fig_combined = figure(17);
 fig_combined.Position = [100, 100, 1600, 1200];
+fig_combined.Color = 'k';
+fig_combined.InvertHardcopy = 'off';
 tiledlayout(4, 4, 'Padding', 'compact', 'TileSpacing', 'compact');
 
 % all distributions are front bias
@@ -54,7 +56,7 @@ for q = 1:size(K_front,1)
             kf = K_front(q,j);
             kr = K_rear(k,j);
 
-            stiffness_distribution(j) = kf/(kf + kr); % ✅ correct
+            stiffness_distribution(j) = kf/(kf + kr);
 
             for i = 1:length(weight_distribution)
 
@@ -100,30 +102,39 @@ for q = 1:size(K_front,1)
         ContourData(count).K_front = K_front(q,:);
         ContourData(count).K_rear  = K_rear(k,:);
 
-        % ✅ CREATE INDIVIDUAL FIGURE (Figures 1-16)
-        figure(count);
-        contour(weight_distribution_mesh, stiffness_distribution_mesh, ...
-                LLTD_val*100, 10, 'LineWidth',1.5);
-        colormap(jet)
-        colorbar
-        title(sprintf('Front Spring = %.2f lb/in, Rear Spring = %.2f lb/in', ...
+        % ── Individual figures (1–16) ──────────────────────────────────────
+        fig_ind = figure(count);
+        set(fig_ind, 'Color', 'k', 'InvertHardcopy', 'off');
+        ax_ind = axes();
+        contour(ax_ind, weight_distribution_mesh, stiffness_distribution_mesh, ...
+                LLTD_val*100, 10, 'LineWidth', 1.5);
+        set(ax_ind, 'Color', 'k', 'XColor', 'w', 'YColor', 'w', ...
+                    'GridColor', 'w', 'GridAlpha', 0.15);
+        colormap(ax_ind, jet)
+        cb = colorbar(ax_ind);
+        cb.Color = 'w';
+        t = title(ax_ind, sprintf('Front Spring = %.2f lb/in, Rear Spring = %.2f lb/in', ...
               front.springs(q), rear.springs(k)));
-        xlabel('Static weight dist front [%]')
-        ylabel('Stiffness dist front [%]')
-        grid on
-
-        % ✅ ALSO ADD TO COMBINED FIGURE (Figure 17)
+        t.Color = 'w';
+        xlabel(ax_ind, 'Static weight dist front [%]', 'Color', 'w');
+        ylabel(ax_ind, 'Stiffness dist front [%]', 'Color', 'w');
+        grid(ax_ind, 'on');
+        
+        % ── Combined figure (17) ───────────────────────────────────────────
         figure(17);
-        nexttile;
-        contour(weight_distribution_mesh, stiffness_distribution_mesh, ...
-                LLTD_val*100, 10, 'LineWidth',1.5);
-        colormap(jet)
-        colorbar
-        title(sprintf('F: %.2f lb/in, R: %.2f lb/in', ...
-              front.springs(q), rear.springs(k)), 'FontSize', 9);
-        xlabel('Weight dist [%]', 'FontSize', 8)
-        ylabel('Stiffness dist [%]', 'FontSize', 8)
-        grid on
+        ax_tile = nexttile;
+        contour(ax_tile, weight_distribution_mesh, stiffness_distribution_mesh, ...
+                LLTD_val*100, 10, 'LineWidth', 1.5);
+        set(ax_tile, 'Color', 'k', 'XColor', 'w', 'YColor', 'w', ...
+                     'GridColor', 'w', 'GridAlpha', 0.15);
+        colormap(ax_tile, jet)
+        cb17 = colorbar(ax_tile);
+        cb17.Color = 'w';
+        title(ax_tile, sprintf('F: %.2f lb/in, R: %.2f lb/in', ...
+              front.springs(q), rear.springs(k)), 'Color', 'w', 'FontSize', 9);
+        xlabel(ax_tile, 'Weight dist [%]', 'Color', 'w', 'FontSize', 8);
+        ylabel(ax_tile, 'Stiffness dist [%]', 'Color', 'w', 'FontSize', 8);
+        grid(ax_tile, 'on');
         
         count = count + 1;
     end
