@@ -15,7 +15,7 @@ rearunsprung.m = 9.247;
 car.wheelbase = 1.558;
 car.track = 1.21;
 car.cgh = 0.3;
-car.r_wheel = 0.23707;
+car.r_wheel = 0.2032;
 car.m_sprung = car.m - 2*frontunsprung.m - 2*rearunsprung.m;
 
 car.b = (car.wheelbase * car.m * weight_distribution) / car.m;

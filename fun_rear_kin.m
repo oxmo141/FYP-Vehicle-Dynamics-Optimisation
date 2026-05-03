@@ -8,13 +8,12 @@ function [avw, rvwv, toe, camber] = fun_rear_kin(phi, p, toe_prev)
 %               Pass [] or omit on first call
 % =========================================================================
 
-% --- Branch continuity seed -------------------------------------------
 if nargin < 3 || isempty(toe_prev)
     toe_prev = 0;
 end
 
 % =====================================================================
-%  LOWER ARM — driven by phi (input angle)
+%  LOWER ARM
 % =====================================================================
 rAB        = p.rvbk - p.rvak;
 rAC_design = p.rvck - p.rvak;
@@ -24,7 +23,7 @@ R_lower    = eye(3) + sin(phi)*K_lower + (1-cos(phi))*K_lower^2;
 C_pos      = p.rvak + R_lower * rAC_design;
 
 % =====================================================================
-%  UPPER ARM — Newton-Raphson to close kinematic chain
+%  UPPER ARM — Newton-Raphson
 % =====================================================================
 rDE        = p.rvek - p.rvdk;
 rDF_design = p.rvfk - p.rvdk;
@@ -32,7 +31,7 @@ axis_upper = rDE / norm(rDE);
 K_upper    = skew_symmetric(axis_upper);
 len_CF     = norm(p.rvck - p.rvfk);
 
-phi_upper  = phi;  % initial guess
+phi_upper  = phi;
 
 for iter_chain = 1:60
     R_upper = eye(3) + sin(phi_upper)*K_upper + (1-cos(phi_upper))*K_upper^2;
@@ -55,7 +54,7 @@ R_upper = eye(3) + sin(phi_upper)*K_upper + (1-cos(phi_upper))*K_upper^2;
 F_pos   = p.rvdk + R_upper * rDF_design;
 
 % =====================================================================
-%  WHEEL CENTER — sphere-sphere intersection
+%  WHEEL CENTRE — sphere-sphere intersection
 % =====================================================================
 len_WC = norm(p.rvwk - p.rvck);
 len_WF = norm(p.rvwk - p.rvfk);
@@ -67,10 +66,7 @@ if any(isnan(rvwv))
 end
 
 % =====================================================================
-%  DESIGN UPRIGHT FRAME  (computed once from design hardpoints)
-%  This is the reference frame for:
-%    (a) branch-flip prevention
-%    (b) H offset reconstruction
+%  DESIGN UPRIGHT FRAME
 % =====================================================================
 kingpin_des = p.rvfk - p.rvck;
 ey0_des     = kingpin_des / norm(kingpin_des);
@@ -87,12 +83,11 @@ ex0_des = cross(ey0_des, ez0_des);
 if norm(ex0_des) > 1e-8
     ex0_des = ex0_des / norm(ex0_des);
 end
-% Reorthogonalize design frame
 ez0_des = cross(ex0_des, ey0_des);
 ez0_des = ez0_des / norm(ez0_des);
 
 % =====================================================================
-%  CURRENT UPRIGHT FRAME  (from current C, F, W positions)
+%  CURRENT UPRIGHT FRAME
 % =====================================================================
 kingpin_vec = F_pos - C_pos;
 ey0         = kingpin_vec / norm(kingpin_vec);
@@ -111,13 +106,11 @@ if norm(ex0) > 1e-8
 else
     ex0 = [1; 0; 0];
 end
-% Reorthogonalize
 ez0 = cross(ex0, ey0);
 ez0 = ez0 / norm(ez0);
 
 % =====================================================================
-%  BRANCH CONSISTENCY — align current frame to design frame
-%  Uses dot product test (stable across full travel range)
+%  BRANCH CONSISTENCY
 % =====================================================================
 if dot(ex0, ex0_des) < 0
     ex0 = -ex0;
@@ -132,7 +125,7 @@ if dot(ey0, ey0_des) < 0
 end
 
 % =====================================================================
-%  TOE LINK — H tracks upright rigidly, solve for toe rotation
+%  TOE LINK — solve for toe rotation
 % =====================================================================
 if isfield(p, 'rvgk') && isfield(p, 'rvhk')
 
@@ -140,35 +133,19 @@ if isfield(p, 'rvgk') && isfield(p, 'rvhk')
     H_des  = p.rvhk;
     len_GH = norm(H_des - G_pos);
 
-    % Express H offset in design upright LOCAL frame
-    R_des          = [ex0_des, ey0_des, ez0_des];   % 3x3, columns = axes
-    H_offset_local = R_des' * (H_des - p.rvwk);     % R^T = world->local
+    R_des          = [ex0_des, ey0_des, ez0_des];
+    H_offset_local = R_des' * (H_des - p.rvwk);
 
-    % Reconstruct H in current upright frame (before toe rotation)
     R_cur     = [ex0, ey0, ez0];
     H_upright = rvwv + R_cur * H_offset_local;
 
-    % --- Diagnostic at design position --------------------------------
-    if phi == 0
-        fprintf('\n--- H TRACKING DIAGNOSTIC (phi=0) ---\n')
-        fprintf('H design:           [%.5f, %.5f, %.5f]\n', H_des(1),      H_des(2),      H_des(3))
-        fprintf('H_offset_local:     [%.5f, %.5f, %.5f]\n', H_offset_local(1), H_offset_local(2), H_offset_local(3))
-        fprintf('H_upright (no toe): [%.5f, %.5f, %.5f]\n', H_upright(1),  H_upright(2),  H_upright(3))
-        fprintf('H_design==H_upright? dist=%.2e mm\n',      norm(H_upright - H_des)*1000)
-        fprintf('||H_upright - G|| = %.6f m  (target = %.6f m)\n', norm(H_upright - G_pos), len_GH)
-        fprintf('--------------------------------------\n\n')
-    end
-
-    % ---- Solve toe rotation that satisfies ||H_rotated - G|| = len_GH
-    %      PASS toe_prev for branch continuity  <-- KEY FIX
     toe_rad = solve_toe_angle(rvwv, ey0, H_upright, G_pos, len_GH, toe_prev);
 
-    % Apply toe rotation to upright frame vectors
     K_ey     = skew_symmetric(ey0);
     R_toe    = eye(3) + sin(toe_rad)*K_ey + (1-cos(toe_rad))*K_ey^2;
 
     ex_final = R_toe * ex0;
-    ey_final = ey0;          % Kingpin axis is unchanged by toe
+    ey_final = ey0;
     ez_final = R_toe * ez0;
 
 else
@@ -184,88 +161,83 @@ end
 avw = [ex_final, ey_final, ez_final];
 
 % =====================================================================
-%  TOE ANGLE  (projected to ground plane XY)
-%  atan2 convention:
-%    Right wheel: ex_final(2) < 0 → toe-in  (negative Y = inboard)
-%    Left  wheel: mirrored hardpoints produce opposite sign automatically
+%  TOE
+%  toe_rad is rotation about ey0. ey0(2) is positive for right wheel,
+%  negative for left wheel. Normalise so toe-in is positive for both.
+%  toe-in = wheel front points toward centreline
+%  Right wheel (ey0(2)>0): toe-in = positive toe_rad
+%  Left  wheel (ey0(2)<0): toe-in = negative toe_rad → multiply by sign(ey0(2))
 % =====================================================================
-ex_xy = ex_final(1:2);
-ex_xy = ex_xy / norm(ex_xy);
-toe   = atan2(ex_xy(2), ex_xy(1));
-
-% Wrap to (-pi/2, +pi/2]
-if toe >  pi/2, toe = toe - pi; end
-if toe < -pi/2, toe = toe + pi; end
+toe = toe_rad * sign(ey0(2));
 
 % =====================================================================
-%  CAMBER ANGLE  (tilt about longitudinal axis)
+%  CAMBER
 % =====================================================================
-camber = atan2(ey_final(1), ey_final(3));
+kp_des     = p.rvfk - p.rvck;
+e_kp_des   = kp_des / norm(kp_des);
+CW_des     = p.rvwk - p.rvck;
+CW_lat_des = CW_des - dot(CW_des, e_kp_des) * e_kp_des;
+e_spin_des = CW_lat_des / norm(CW_lat_des);
 
-% =====================================================================
-%  DIAGNOSTIC PRINT
-% =====================================================================
-fprintf('phi=%7.4f rad | ex_final=[%+.6f, %+.6f, %+.6f] | toe=%+.4f rad (%+.2f deg) | camber=%+.4f rad (%+.2f deg)\n', ...
-    phi, ex_final(1), ex_final(2), ex_final(3), ...
-    toe,   toe*180/pi, ...
-    camber, camber*180/pi)
+kp_cur     = F_pos - C_pos;
+e_kp_cur   = kp_cur / norm(kp_cur);
+CW_cur     = rvwv - C_pos;
+CW_lat_cur = CW_cur - dot(CW_cur, e_kp_cur) * e_kp_cur;
+e_spin_cur = CW_lat_cur / norm(CW_lat_cur);
 
-end  % fun_rear_kin
+e_spin_des_yz = [0; e_spin_des(2); e_spin_des(3)];
+e_spin_des_yz = e_spin_des_yz / norm(e_spin_des_yz);
+
+e_spin_cur_yz = [0; e_spin_cur(2); e_spin_cur(3)];
+e_spin_cur_yz = e_spin_cur_yz / norm(e_spin_cur_yz);
+
+cross_yz = cross(e_spin_des_yz, e_spin_cur_yz);
+camber   = asin(max(-1, min(1, cross_yz(1))));
+camber   = -camber;
+
+end
 
 
 % =========================================================================
 %  SOLVE TOE ANGLE
-%  Rotates H about the kingpin (ey) until ||H_rotated - G|| = len_GH.
-%  Two branches are tried; the one CLOSEST to toe_prev is selected.
-%  This enforces smooth, continuous, branch-consistent behaviour across
-%  the full phi range and between left/right wheels.
 % =========================================================================
 function toe = solve_toe_angle(W_pos, ey, H_upright, G_pos, len_GH, toe_prev)
 
-if nargin < 6 || isempty(toe_prev)
-    toe_prev = 0;
-end
+if nargin < 6 || isempty(toe_prev), toe_prev = 0; end
 
 K_ey     = skew_symmetric(ey);
 H_offset = H_upright - W_pos;
 tol      = 1e-11;
 max_iter = 100;
 
-% --- Inner Newton solver (reusable) -----------------------------------
     function t = newton_toe(t0)
         t = t0;
         for it = 1:max_iter
-            R_t   = eye(3) + sin(t)*K_ey + (1-cos(t))*K_ey^2;
-            H_t   = W_pos + R_t * H_offset;
-            d     = norm(H_t - G_pos);
-            res   = d - len_GH;
+            R_t  = eye(3) + sin(t)*K_ey + (1-cos(t))*K_ey^2;
+            H_t  = W_pos + R_t * H_offset;
+            d    = norm(H_t - G_pos);
+            res  = d - len_GH;
             if abs(res) < tol, return, end
-            dHdt  = (cos(t)*K_ey + sin(t)*K_ey^2) * H_offset;
-            J     = dot(H_t - G_pos, dHdt) / (d + 1e-14);
+            dHdt = (cos(t)*K_ey + sin(t)*K_ey^2) * H_offset;
+            J    = dot(H_t - G_pos, dHdt) / (d + 1e-14);
             if abs(J) < 1e-14, return, end
-            step  = max(-0.1, min(0.1, res / J));
-            t     = t - step;
+            step = max(-0.1, min(0.1, res / J));
+            t    = t - step;
         end
     end
-% ----------------------------------------------------------------------
 
-% Branch 1: seed from toe_prev  (most likely correct branch)
 toe1 = newton_toe(toe_prev);
 R1   = eye(3) + sin(toe1)*K_ey + (1-cos(toe1))*K_ey^2;
 res1 = abs(norm(W_pos + R1*H_offset - G_pos) - len_GH);
 
-% Branch 2: seed from opposite side
 toe2 = newton_toe(-toe_prev);
 R2   = eye(3) + sin(toe2)*K_ey + (1-cos(toe2))*K_ey^2;
 res2 = abs(norm(W_pos + R2*H_offset - G_pos) - len_GH);
 
-% --- Select branch closest to toe_prev (continuity criterion) ---------
-%     Only fall back to residual comparison if one branch fails to converge
 converged1 = res1 < 1e-8;
 converged2 = res2 < 1e-8;
 
 if converged1 && converged2
-    % Both converged: pick the one closest to previous value
     if abs(toe1 - toe_prev) <= abs(toe2 - toe_prev)
         toe = toe1;
     else
@@ -276,15 +248,12 @@ elseif converged1
 elseif converged2
     toe = toe2;
 else
-    % Neither converged cleanly: best residual wins
-    if res1 <= res2
-        toe = toe1;
-    else
-        toe = toe2;
+    if res1 <= res2, toe = toe1;
+    else,            toe = toe2;
     end
 end
 
-end  % solve_toe_angle
+end
 
 
 % =========================================================================
@@ -299,7 +268,6 @@ end
 
 % =========================================================================
 %  SPHERE-SPHERE INTERSECTION
-%  Returns the point on the intersection circle closest to p_design.
 % =========================================================================
 function p = sphere_intersect(c1, r1, c2, r2, p_design)
 
