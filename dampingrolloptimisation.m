@@ -1,5 +1,5 @@
 %% LATERAL LOAD TRANSFER ANALYSIS - MULTI-TARGET OVERSHOOT OPTIMISATION
-clear; clc;
+clear; clc; close all;
 paramR26;  % This loads car, front, rear, etc.
 
 %% -----------------------------------------------------------------------

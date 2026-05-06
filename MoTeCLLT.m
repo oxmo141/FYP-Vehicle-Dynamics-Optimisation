@@ -1,115 +1,123 @@
 %% LATERAL LOAD TRANSFER FROM MOTEC I2PRO DATA
+clear; clc; close all;
 
-clear;clc
-
-[t, TLTf, TLTr, Total_LLT, roll_angle, front_roll_out, rear_roll_out] = computeVehicleLLT();
-staticload = (198+66) * 9.81 /4
-averageTLTf = mean(TLTf)
-averageTLTr = mean(TLTr)
-%% PLOTTING
-MoTecData;
+% =========================================================================
+%% LOAD DATA & PARAMETERS
+% =========================================================================
+motec = load('MoTeC data/JTCendurance_test9.mat');
 paramR26;
 
-figure(1);
-title('Raw Data')
-plot(t, TLTf, 'r', 'LineWidth', 1.5)
-hold on
-plot(t, TLTr, 'b', 'LineWidth', 1.5)
-hold on 
-plot(t, Total_LLT, 'g', 'LineWidth', 1.5)
+% =========================================================================
+%% COMPUTE LLT
+% =========================================================================
+[t, TLTf, TLTr, Total_LLT, roll_angle, front_roll_out, rear_roll_out] = computeVehicleLLT();
 
+static_load   = (198 + 66) * 9.81 / 4;
+average_TLT_f = mean(TLTf);
+average_TLT_r = mean(TLTr);
 
-xlabel('Time (s)')
-ylabel('Load Transfer (N)')
-legend('Total Lateral Load Transfer Front', ...
-    'Total Lateral Load Transfer Rear', ...
-    'Total Lateral Load Transfer Car')
-grid on
+fprintf('=== LATERAL LOAD TRANSFER SUMMARY ===\n');
+fprintf('Static Corner Load  : %.2f N\n',   static_load);
+fprintf('Mean Front LLT      : %.2f N\n',   average_TLT_f);
+fprintf('Mean Rear  LLT      : %.2f N\n\n', average_TLT_r);
 
-%% CHECK TOTAL LOAD TRANSFER
+% =========================================================================
+%% THEORETICAL TOTAL LLT (VERIFICATION)
+% =========================================================================
+lateral_g_interp  = interp1(motec.Average_Lat_G.Time, motec.Average_Lat_G.Value, ...
+                             t, 'linear', 'extrap');
+theoretical_total = (lateral_g_interp * 9.81 * car.m * car.cgh) / car.track;
 
-% Assuming data.Average_Lateral_G.Time holds the time corresponding to the lateral G values
-t_lateral = data.Average_Lateral_G.Time;  % Extract the time vector for lateral G
-lateral_g_raw = data.Average_Lateral_G.Value;  % Extract the lateral G values
+% =========================================================================
+%% DAMPER LINEAR VELOCITY
+% =========================================================================
+half_track = car.track / 2;
+dphi_f     = gradient(front_roll_out, t);
+dphi_r     = gradient(rear_roll_out,  t);
+v_damper_f = dphi_f * half_track * front.MR * 1000;
+v_damper_r = dphi_r * half_track * rear.MR  * 1000;
 
-% Interpolate lateral G values onto the common time vector t
-lateral_g_interp = interp1(t_lateral, lateral_g_raw, t, 'linear', 'extrap');
+% =========================================================================
+%% DARK THEME HELPER
+% =========================================================================
+function style_dark(ax)
+    set(ax, 'Color', 'k', ...
+            'XColor', 'w', 'YColor', 'w', ...
+            'GridColor', [0.4 0.4 0.4], ...
+            'MinorGridColor', [0.25 0.25 0.25]);
+end
 
-theoretical_total_load = (lateral_g_interp*9.81*car.m*car.cgh)/car.track;
+function fig = dark_figure(num)
+    fig = figure(num);
+    set(fig, 'Color', 'k');
+end
 
-figure(2);
-plot(t, theoretical_total_load, 'r', 'LineWidth', 1.5)
-hold on
-plot(t, Total_LLT,'b' ,'LineWidth', 1.5)
+% =========================================================================
+%% PLOTS
+% =========================================================================
 
-xlabel('Time (s)')
-ylabel('Load Transfer (N)')
-legend('Total Car Baseline', ...
-    'Total Lateral Load Transfer Car')
-grid on
+% --- Figure 1: Front, Rear & Total LLT ---
+dark_figure(1);
+ax = axes;
+plot(ax, t, TLTf,      'r', 'LineWidth', 1.5, 'DisplayName', 'Front LLT'); hold on;
+plot(ax, t, TLTr,      'b', 'LineWidth', 1.5, 'DisplayName', 'Rear LLT');
+plot(ax, t, Total_LLT, 'g', 'LineWidth', 1.5, 'DisplayName', 'Total LLT');
+xlabel('Time (s)'); ylabel('Load Transfer (N)');
+title('Lateral Load Transfer — Raw Data', 'Color', 'w');
+lg = legend; set(lg, 'TextColor', 'w', 'Color', 'k', 'EdgeColor', 'w');
+grid on; style_dark(ax);
 
-%% ROLL ANGLE
-figure(3);
-plot(t, front_roll_out * 180/pi, 'r', 'LineWidth', 1.5)
-hold on
-plot(t, rear_roll_out * 180/pi,'b' ,'LineWidth', 1.5)
+% --- Figure 2: Theoretical vs Computed Total LLT ---
+dark_figure(2);
+ax = axes;
+plot(ax, t, theoretical_total, 'r', 'LineWidth', 1.5, 'DisplayName', 'Theoretical Total'); hold on;
+plot(ax, t, Total_LLT,         'b', 'LineWidth', 1.5, 'DisplayName', 'Computed Total');
+xlabel('Time (s)'); ylabel('Load Transfer (N)');
+title('Total LLT Verification', 'Color', 'w');
+lg = legend; set(lg, 'TextColor', 'w', 'Color', 'k', 'EdgeColor', 'w');
+grid on; style_dark(ax);
 
-xlabel('Time (s)')
-ylabel('Roll Angle (deg)')
-legend('Front Roll Angle', 'Rear Roll Angle')
-grid on
+% --- Figure 3: Roll Angles ---
+dark_figure(3);
+ax = axes;
+plot(ax, t, front_roll_out * 180/pi, 'r', 'LineWidth', 1.5, 'DisplayName', 'Front'); hold on;
+plot(ax, t, rear_roll_out  * 180/pi, 'b', 'LineWidth', 1.5, 'DisplayName', 'Rear');
+xlabel('Time (s)'); ylabel('Roll Angle (deg)');
+title('Roll Angles', 'Color', 'w');
+lg = legend; set(lg, 'TextColor', 'w', 'Color', 'k', 'EdgeColor', 'w');
+grid on; style_dark(ax);
 
-% %% SIGNAL SMOOTHENING
-% 
-% % Apply a moving average filter to smooth the signals
-% windowSize = 30; % Define the window size for smoothing
-% smoothTLTf = smoothdata(TLTf, 'movmean', windowSize);
-% smoothTLTr = smoothdata(TLTr, 'movmean', windowSize);
-% smoothTotalLLT = smoothdata(Total_LLT, 'movmean', windowSize);
-% 
-% figure(2);
-% title('Smoothened data')
-% plot(t, smoothTLTf, 'r', 'LineWidth', 1.5)
-% hold on
-% plot(t, smoothTLTr, 'b', 'LineWidth', 1.5)
-% hold on 
-% plot(t, smoothTotalLLT,'g', 'LineWidth', 1.5)
-% 
-% xlabel('Time (s)')
-% ylabel('Load Transfer (N)')
-% legend('Total Lateral Load Transfer Front', ...
-%     'Total Lateral Load Transfer Rear', ...
-%     'Total Lateral Load Transfer Car')
-% grid on
-% 
-% figure(3);
-% title('Check')
-% plot(t, TLTf, 'r', 'LineWidth', 1.5)
-% hold on
-% plot(t, smoothTLTf, 'b', 'LineWidth', 1.5)
-% 
-% xlabel('Time (s)')
-% ylabel('Load Transfer (N)')
-% legend('Total Lateral Load Transfer Front Raw', ...
-%     'Total Lateral Load Transfer Front Smoothened')
+% --- Figure 4: Damper Linear Velocity & Distribution ---
+dark_figure(4);
+tl = tiledlayout(2, 2, 'TileSpacing', 'compact', 'Padding', 'compact');
+title(tl, 'Damper Linear Velocity from Roll', 'Color', 'w');
 
-% %% AERO DOWNIES
-% % linear pods
-% FL_value = data.Damper_Front_Left_Linear.Value;
-% FL_time = data.Damper_Front_Left_Linear.Time;
-% 
-% FR_value = data.Damper_Front_Right_Linear.Value;
-% FR_time = data.Damper_Front_Right_Linear.Time;
-% 
-% 
-% % Interpolate
-% FL_interp = interp1(FL_time, FL_value, t, 'linear', 'extrap');
-% FR_interp = interp1(FR_time, FR_value, t, 'linear', 'extrap');
-% 
-% figure(4);
-% plot(t, FL_interp, 'r', 'LineWidth', 1.5);
-% hold on
-% plot(t, FR_interp, 'b', 'LineWidth', 1.5);
-% hold on
-% plot(t, front_roll_out*car.track - 10.4, 'g', 'LineWidth', 1.5);
+nexttile(1); ax = gca;
+plot(t, v_damper_f, 'r', 'LineWidth', 1.5);
+xlabel('Time (s)'); ylabel('Velocity (mm/s)');
+title('Front Damper Velocity', 'Color', 'w');
+grid on; style_dark(ax);
 
+nexttile(2); ax = gca;
+counts_f = histcounts(v_damper_f, 50);
+pct_f    = counts_f / sum(counts_f) * 100;
+edges_f  = linspace(min(v_damper_f), max(v_damper_f), 51);
+bar(edges_f(1:end-1), pct_f, 1, 'FaceColor', 'r', 'EdgeColor', 'none');
+xlabel('Velocity (mm/s)'); ylabel('Occurrence (%)');
+title('Front Velocity Distribution', 'Color', 'w');
+grid on; style_dark(ax);
+
+nexttile(3); ax = gca;
+plot(t, v_damper_r, 'b', 'LineWidth', 1.5);
+xlabel('Time (s)'); ylabel('Velocity (mm/s)');
+title('Rear Damper Velocity', 'Color', 'w');
+grid on; style_dark(ax);
+
+nexttile(4); ax = gca;
+counts_r = histcounts(v_damper_r, 50);
+pct_r    = counts_r / sum(counts_r) * 100;
+edges_r  = linspace(min(v_damper_r), max(v_damper_r), 51);
+bar(edges_r(1:end-1), pct_r, 1, 'FaceColor', 'b', 'EdgeColor', 'none');
+xlabel('Velocity (mm/s)'); ylabel('Occurrence (%)');
+title('Rear Velocity Distribution', 'Color', 'w');
+grid on; style_dark(ax);

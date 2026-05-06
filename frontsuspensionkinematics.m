@@ -302,15 +302,31 @@ text(max(heave)*0.1, max(abs(toe_heave))*0.75, 'JOUNCE', 'Color',[0.7 0 0],'Font
 text(min(heave)*0.9, max(abs(toe_heave))*0.75, 'DROOP',  'Color',[0 0 0.7],'FontSize',8,'FontWeight','bold')
 legend('Location','southwest','FontSize',9)
 
+% Ride camber rate [deg/m]
+heave_m      = (zw(:, m0) - z_design);          % heave in metres
+ride_camber_rate = gradient(camb_heave, heave_m * 1000) / 1000 * 1000;
+% deg/mm * 1000 = deg/m — use polyfit over full range for a clean rate
+p_camb_heave = polyfit(heave_m, camb_heave, 1);  % linear fit
+ride_camber_rate_avg = p_camb_heave(1);           % [deg/m]  slope
+
 axes('position',[0.56, 0.58, 0.38, 0.33])
 hold on, grid on
-title({['Camber Change vs Heave  |  Front-', wheel_side, ' Wheel']; 'Neutral steering  (u = 0)'}, 'FontWeight','bold')
-xlabel('Heave  h  [mm]  (+: jounce)'), ylabel('\Delta\gamma  [deg]  (+: top outboard)')
-cj = camb_heave(jounce_idx);  cd_vals = camb_heave(droop_idx);
+title({['Camber Change vs Heave  |  Front-', wheel_side, ' Wheel']; ...
+       ['Neutral steering  (u = 0)  |  Ride camber rate: ', ...
+        sprintf('%.2f', ride_camber_rate_avg), ' deg/m']}, 'FontWeight','bold')
+xlabel('Heave  h  [mm]  (+: jounce)')
+ylabel('\Delta\gamma  [deg]  (+: top outboard)')
+cj      = camb_heave(jounce_idx);
+cd_vals = camb_heave(droop_idx);
 fill([hj; hj(end); hj(1)], [cj; 0; 0],      [1 0.85 0.85],'EdgeColor','none','FaceAlpha',0.4,'HandleVisibility','off')
 fill([hd; hd(end); hd(1)], [cd_vals; 0; 0], [0.85 0.90 1],'EdgeColor','none','FaceAlpha',0.4,'HandleVisibility','off')
 plot(heave, camb_heave, 'r-s', 'LineWidth',2, 'MarkerSize',5, 'DisplayName','Camber change')
 plot(heave(n0), camb_heave(n0), 'g*', 'MarkerSize',14, 'LineWidth',2, 'DisplayName','Design pos.')
+% Plot linear fit line
+heave_fit_mm = linspace(min(heave), max(heave), 100);
+camb_fit     = polyval(p_camb_heave, heave_fit_mm/1000);
+plot(heave_fit_mm, camb_fit, 'k--', 'LineWidth', 1, 'DisplayName', ...
+    sprintf('Linear fit: %.2f deg/m', ride_camber_rate_avg))
 yline(0,'k:','HandleVisibility','off'), xline(0,'k:','HandleVisibility','off')
 text(max(heave)*0.1, max(abs(camb_heave))*0.75, 'JOUNCE', 'Color',[0.7 0 0],'FontSize',8,'FontWeight','bold')
 text(min(heave)*0.9, max(abs(camb_heave))*0.75, 'DROOP',  'Color',[0 0 0.7],'FontSize',8,'FontWeight','bold')
@@ -374,14 +390,29 @@ end
 camb_outer_road_roll = camb_outer_roll - roll_sweep_deg / 2;
 camb_inner_road_roll = camb_inner_roll + roll_sweep_deg / 2;
 
+% Roll camber rates [deg/deg]
+p_outer_susp = polyfit(roll_sweep_deg, camb_outer_roll,      1);
+p_inner_susp = polyfit(roll_sweep_deg, camb_inner_roll,      1);
+p_outer_road = polyfit(roll_sweep_deg, camb_outer_road_roll, 1);
+p_inner_road = polyfit(roll_sweep_deg, camb_inner_road_roll, 1);
+
+rate_outer_susp = p_outer_susp(1);   % [deg/deg]
+rate_inner_susp = p_inner_susp(1);
+rate_outer_road = p_outer_road(1);
+rate_inner_road = p_inner_road(1);
+
 % Left: Suspension camber change vs body roll
 axes('position', [0.06, 0.58, 0.38, 0.33])
 hold on, grid on
-title({'Suspension Camber Change vs Body Roll'; 'No steering  (u = 0)'}, 'FontWeight','bold')
+title({'Suspension Camber Change vs Body Roll'; ...
+       ['Outer: ', sprintf('%.4f', rate_outer_susp), ' deg/deg  |  ', ...
+        'Inner: ', sprintf('%.4f', rate_inner_susp), ' deg/deg']}, 'FontWeight','bold')
 xlabel('Body roll angle  [deg]  (right corner = positive)')
-ylabel('\Delta\gamma_{susp}  [deg]  (+: top outboard)')
-plot(roll_sweep_deg, camb_outer_roll, 'b-',  'LineWidth', 2, 'DisplayName', 'Outer wheel (right, jounce)')
-plot(roll_sweep_deg, camb_inner_roll, 'r--', 'LineWidth', 2, 'DisplayName', 'Inner wheel (left, droop)')
+ylabel('\Delta\gamma_{susp}  [deg/deg body roll]  (+: top outboard)')
+plot(roll_sweep_deg, camb_outer_roll, 'b-',  'LineWidth', 2, 'DisplayName', ...
+    ['Outer (right, jounce)  ', sprintf('%.4f deg/deg', rate_outer_susp)])
+plot(roll_sweep_deg, camb_inner_roll, 'r--', 'LineWidth', 2, 'DisplayName', ...
+    ['Inner (left, droop)    ', sprintf('%.4f deg/deg', rate_inner_susp)])
 yline(0, 'k:', 'HandleVisibility', 'off')
 xline(0, 'k:', 'HandleVisibility', 'off')
 legend('Location', 'best', 'FontSize', 9)
@@ -389,11 +420,15 @@ legend('Location', 'best', 'FontSize', 9)
 % Right: Road-relative camber vs body roll
 axes('position', [0.56, 0.58, 0.38, 0.33])
 hold on, grid on
-title({'Road-Relative Camber vs Body Roll'; 'No steering  (u = 0)'}, 'FontWeight','bold')
+title({'Road-Relative Camber vs Body Roll'; ...
+       ['Outer: ', sprintf('%.4f', rate_outer_road), ' deg/deg  |  ', ...
+        'Inner: ', sprintf('%.4f', rate_inner_road), ' deg/deg']}, 'FontWeight','bold')
 xlabel('Body roll angle  [deg]  (right corner = positive)')
-ylabel('\Delta\gamma_{road}  [deg]  (+: top outboard)')
-plot(roll_sweep_deg, camb_outer_road_roll, 'b-',  'LineWidth', 2, 'DisplayName', 'Outer wheel (right)')
-plot(roll_sweep_deg, camb_inner_road_roll, 'r--', 'LineWidth', 2, 'DisplayName', 'Inner wheel (left)')
+ylabel('\Delta\gamma_{road}  [deg/deg body roll]  (+: top outboard)')
+plot(roll_sweep_deg, camb_outer_road_roll, 'b-',  'LineWidth', 2, 'DisplayName', ...
+    ['Outer (right)  ', sprintf('%.4f deg/deg', rate_outer_road)])
+plot(roll_sweep_deg, camb_inner_road_roll, 'r--', 'LineWidth', 2, 'DisplayName', ...
+    ['Inner (left)   ', sprintf('%.4f deg/deg', rate_inner_road)])
 yline(0, 'k:', 'HandleVisibility', 'off')
 xline(0, 'k:', 'HandleVisibility', 'off')
 legend('Location', 'best', 'FontSize', 9)
@@ -402,19 +437,20 @@ legend('Location', 'best', 'FontSize', 9)
 axes('position', [0.20, 0.14, 0.55, 0.33])
 hold on, grid on
 title({'Suspension vs Road-Relative Camber  |  0 to 1° Body Roll'; ...
-       'No steering  |  Outer = right (jounce)  |  Inner = left (droop)'}, 'FontWeight','bold')
+       ['No steering  |  Road-relative rates:  Outer = ', ...
+        sprintf('%.4f', rate_outer_road), ' deg/deg  |  Inner = ', ...
+        sprintf('%.4f', rate_inner_road), ' deg/deg']}, 'FontWeight','bold')
 xlabel('Body roll angle  [deg]')
 ylabel('\Delta\gamma  [deg]  (+: top outboard)')
-plot(roll_sweep_deg, camb_outer_roll,      'b-',  'LineWidth', 2, 'DisplayName', 'Outer suspension \Delta\gamma')
+plot(roll_sweep_deg, camb_outer_roll,      'b-',  'LineWidth', 2,   'DisplayName', 'Outer suspension \Delta\gamma')
 plot(roll_sweep_deg, camb_outer_road_roll, 'b--', 'LineWidth', 1.5, 'DisplayName', 'Outer road-relative \Delta\gamma')
-plot(roll_sweep_deg, camb_inner_roll,      'r-',  'LineWidth', 2, 'DisplayName', 'Inner suspension \Delta\gamma')
+plot(roll_sweep_deg, camb_inner_roll,      'r-',  'LineWidth', 2,   'DisplayName', 'Inner suspension \Delta\gamma')
 plot(roll_sweep_deg, camb_inner_road_roll, 'r--', 'LineWidth', 1.5, 'DisplayName', 'Inner road-relative \Delta\gamma')
 yline(0, 'k:', 'HandleVisibility', 'off')
 xline(0, 'k:', 'HandleVisibility', 'off')
-% Annotate at 1 deg
-text(1.01, camb_outer_road_roll(end), sprintf('%+.3f°', camb_outer_road_roll(end)), ...
+text(1.01, camb_outer_road_roll(end), sprintf('%+.3f° (%+.4f deg/deg)', camb_outer_road_roll(end), rate_outer_road), ...
     'FontSize', 9, 'Color', 'b', 'FontWeight', 'bold')
-text(1.01, camb_inner_road_roll(end), sprintf('%+.3f°', camb_inner_road_roll(end)), ...
+text(1.01, camb_inner_road_roll(end), sprintf('%+.3f° (%+.4f deg/deg)', camb_inner_road_roll(end), rate_inner_road), ...
     'FontSize', 9, 'Color', 'r', 'FontWeight', 'bold')
 legend('Location', 'best', 'FontSize', 9)
 
@@ -425,6 +461,7 @@ roll_sign_block = {
     'Road-relative camber: suspension change + body roll tilt contribution'
 };
 add_sign_box(roll_sign_block, wheel_side)
+
 
 %% -----------------------------------------------------------------------
 %  FIGURE 5: Steering Response  (was Figure 4)
@@ -538,10 +575,6 @@ for k = 1:m
     end
 end
 
-fprintf('\n===== ACKERMANN DIAGNOSTIC =====\n')
-fprintf('Min steering threshold: %.1f deg\n', min_steer_threshold)
-fprintf('Valid points above threshold: %d / %d\n', sum(~isnan(pct_ackermann)), m)
-
 opposite_side = 'Left';
 sr_block = {
     ['Analyzed: Front-', wheel_side, '  |  Opposite: Front-', opposite_side, '  |  C-factor = ', num2str(c_factor_in_per_rev), ' in/rev'], ...
@@ -557,10 +590,28 @@ xlabel('Steering wheel angle  [deg]  (+: left steer)'), ylabel('Steering ratio  
 plot(sw_angle_deg(valid), SR_right(valid), 'b-o', 'LineWidth',2, 'MarkerSize',5, 'DisplayName', ['SR Right wheel (', wheel_side, ')'])
 plot(sw_angle_deg(valid), SR_left(valid),  'r--s','LineWidth',2, 'MarkerSize',5, 'DisplayName',['SR ', opposite_side, ' wheel'])
 yline(0,'k:','HandleVisibility','off'), xline(0,'k:','HandleVisibility','off')
-[~, first_v] = find(valid,1);
-if ~isempty(first_v)
-    text(sw_angle_deg(first_v)*1.05, SR_right(first_v), sprintf('SR_{right} = %.1f', SR_right(first_v)), 'FontSize',8,'Color','blue','FontWeight','bold')
-end
+% Through-centre SR — interpolate from raw data at SW=0
+[~, idx_centre] = min(abs(sw_angle_deg));
+sr_centre_R = SR_right(idx_centre);
+sr_centre_L = SR_left(idx_centre);
+
+% Mark through-centre on plot
+plot(0, sr_centre_R, 'b^', 'MarkerSize', 10, 'MarkerFaceColor', 'b', ...
+    'DisplayName', sprintf('SR_{right} @ centre = %.3f', sr_centre_R))
+plot(0, sr_centre_L, 'rv', 'MarkerSize', 10, 'MarkerFaceColor', 'r', ...
+    'DisplayName', sprintf('SR_{left}  @ centre = %.3f', sr_centre_L))
+
+% Annotate values
+text(2, sr_centre_R + 0.15, sprintf('SR_{right} = %.3f', sr_centre_R), ...
+    'FontSize', 9, 'Color', 'b', 'FontWeight', 'bold')
+text(2, sr_centre_L - 0.15, sprintf('SR_{left}  = %.3f', sr_centre_L), ...
+    'FontSize', 9, 'Color', 'r', 'FontWeight', 'bold', ...
+    'VerticalAlignment', 'top')
+
+fprintf('\n===== STEERING RATIO THROUGH CENTRE =====\n')
+fprintf('SR through centre - Right: %.4f\n', sr_centre_R)
+fprintf('SR through centre - Left:  %.4f\n', sr_centre_L)
+fprintf('SR through centre - Mean:  %.4f\n', mean([sr_centre_R, sr_centre_L]))
 legend('Location','best','FontSize',9)
 
 axes('position',[0.56, 0.58, 0.38, 0.33])
@@ -617,6 +668,25 @@ for r = 1:length(key_idx)
 end
 
 add_sign_box(sr_block, wheel_side)
+
+% Static Ackermann at key steering angles
+fprintf('\n===== STATIC ACKERMANN SUMMARY =====\n')
+key_sw_ack = [30, 45, 60, 90, 120];
+key_sw_ack = key_sw_ack(key_sw_ack <= max(abs(sw_angle_deg)));
+fprintf('%12s  %15s\n', 'SW angle [deg]', '% Ackermann')
+for k = 1:length(key_sw_ack)
+    % Interpolate pct_ackermann at this SW angle
+    % Use positive SW side (left turn)
+    [~, idx] = min(abs(sw_angle_deg - key_sw_ack(k)));
+    if ~isnan(pct_ackermann(idx))
+        fprintf('%12.1f  %15.2f%%\n', key_sw_ack(k), pct_ackermann(idx))
+    else
+        fprintf('%12.1f  %15s\n', key_sw_ack(k), 'below threshold')
+    end
+end
+fprintf('\nOverall range:  %.1f%% to %.1f%%\n', ...
+    min(pct_ackermann(~isnan(pct_ackermann))), ...
+    max(pct_ackermann(~isnan(pct_ackermann))))
 
 %% -----------------------------------------------------------------------
 %  POLYNOMIAL APPROXIMATION
@@ -715,11 +785,11 @@ poly_ribbon = {
 add_sign_box(poly_ribbon, wheel_side)
 
 %% -----------------------------------------------------------------------
-%  FIGURE 8: Cornering Camber  (was Figure 7)
+%  FIGURE 8: Cornering Camber 
 %% -----------------------------------------------------------------------
 lat_accel_G      = 1.4;
 roll_gradient    = 0.28;
-steer_wheel_deg  = 0;
+steer_wheel_deg  = 70;
 
 roll_angle_deg = lat_accel_G * roll_gradient;
 roll_angle_rad = roll_angle_deg / 180 * pi;
@@ -878,6 +948,495 @@ corner_ribbon = {
     'Roll split assumed 50/50 between axle sides  |  Body roll adds negative camber to outer, positive to inner'
 };
 add_sign_box(corner_ribbon, wheel_side)
+
+%% -----------------------------------------------------------------------
+%  ROLL CENTRE ESTIMATION
+%% -----------------------------------------------------------------------
+roll_gradient_rc  = 0.28;
+lat_accel_rc      = 1.0;
+roll_angle_rc_deg = lat_accel_rc * roll_gradient_rc;
+
+phi_rc_outer =  (roll_angle_rc_deg / 2) / 180 * pi;
+phi_rc_inner = -(roll_angle_rc_deg / 2) / 180 * pi;
+
+par_rc_l = par;
+fields_rc = {'rvwk','rvak','rvbk','rvck','rvdk','rvek','rvfk','rvrk','rvqk'};
+for f = 1:length(fields_rc)
+    par_rc_l.(fields_rc{f})(2) = -par.(fields_rc{f})(2);
+end
+
+% Build phi sweep with exact zero — finer resolution for small roll angles
+n_rc_half    = 100;
+phi_rc_neg   = linspace(-par.phmx_droop,   0, n_rc_half);
+phi_rc_pos   = linspace(0, par.phmx_jounce, n_rc_half);
+phi_rc_sweep = [phi_rc_neg(1:end-1), phi_rc_pos];
+n_rc         = length(phi_rc_sweep);
+rc_height    = zeros(1, n_rc);
+
+IC_r_y_sweep = zeros(1, n_rc);
+IC_r_z_sweep = zeros(1, n_rc);
+CP_r_y_sweep = zeros(1, n_rc);
+CP_r_z_sweep = zeros(1, n_rc);
+
+% -------------------------------------------------------------------------
+%  BODY ROLL METHOD — inboard points move with body roll
+%  Outboard points follow kinematic solution
+%  Each phi_k represents half the total body roll angle
+% -------------------------------------------------------------------------
+rc_y      = zeros(1, n_rc);
+rc_height = zeros(1, n_rc);
+
+yw_rc_r = zeros(1, n_rc);  zw_rc_r = zeros(1, n_rc);
+yw_rc_l = zeros(1, n_rc);  zw_rc_l = zeros(1, n_rc);
+
+for k = 1:n_rc
+    phi_k = phi_rc_sweep(k);   % half total roll angle [rad]
+    % Total body roll = 2 * phi_k
+    % Right wheel = jounce (+phi_k), Left wheel = droop (-phi_k)
+
+    % -----------------------------------------------------------------
+    %  BODY ROLL ROTATION MATRIX about X axis (roll axis)
+    %  Right side: body rolls by +phi_k (right side goes down = jounce)
+    %  Left side:  body rolls by +phi_k (left side goes up  = droop)
+    %  Rotation matrix in YZ plane for angle alpha:
+    %  [Y']   [cos(a)  -sin(a)] [Y]
+    %  [Z'] = [sin(a)   cos(a)] [Z]
+    % -----------------------------------------------------------------
+    alpha = phi_k;   % body roll angle for this step
+
+    R_roll = [cos(alpha), -sin(alpha); ...
+              sin(alpha),  cos(alpha)];
+
+    % -----------------------------------------------------------------
+    %  RIGHT WHEEL — inboard points rotated by +alpha (right side down)
+    % -----------------------------------------------------------------
+    % Rotate inboard chassis pivots about vehicle centreline (Y=0)
+    % Lower arm chassis pivot (midpoint of A and B)
+    rvab_r0  = (par.rvak + par.rvbk) / 2;
+    rvab_r0_yz = [rvab_r0(2); rvab_r0(3)];
+    rvab_r_yz  = R_roll * rvab_r0_yz;   % rotated inboard lower pivot
+
+    rvde_r0  = (par.rvdk + par.rvek) / 2;
+    rvde_r0_yz = [rvde_r0(2); rvde_r0(3)];
+    rvde_r_yz  = R_roll * rvde_r0_yz;   % rotated inboard upper pivot
+
+    % Outboard points from kinematic solution (wheel follows suspension)
+    [~, rvwv_r, ~, ~] = fun_05_dblwb_kin(phi_k, 0, par);
+
+    % For outboard pivot positions, use kinematic function with
+    % small perturbation to find deflected C and F positions
+    % C (lower outboard) and F (upper outboard) move with the wheel
+    % Approximate: rotate outboard points by camber change
+    % Better: use static outboard hardpoints rotated by phi_k
+    % (they are fixed to the upright which rotates with suspension)
+    rvc_r0_yz  = [par.rvck(2); par.rvck(3)];
+    rvf_r0_yz  = [par.rvfk(2); par.rvfk(3)];
+
+    % Outboard points rotate with wheel (heave motion shifts them in Z)
+    % Use the wheel centre Z shift to translate outboard points
+    dZ_r = rvwv_r(3) - par.rvwk(3);
+    dY_r = rvwv_r(2) - par.rvwk(2);
+
+    rvc_r_yz = [rvc_r0_yz(1) + dY_r; rvc_r0_yz(2) + dZ_r];
+    rvf_r_yz = [rvf_r0_yz(1) + dY_r; rvf_r0_yz(2) + dZ_r];
+
+    % IC right = intersection of lower arm line and upper arm line
+    d1_r = rvc_r_yz - rvab_r_yz;
+    d2_r = rvf_r_yz - rvde_r_yz;
+
+    cross_r = d1_r(1)*d2_r(2) - d1_r(2)*d2_r(1);
+
+    if abs(cross_r) < 1e-10
+        IC_r = [Inf; Inf];
+    else
+        diff_r = rvde_r_yz - rvab_r_yz;
+        t_r    = (diff_r(1)*d2_r(2) - diff_r(2)*d2_r(1)) / cross_r;
+        IC_r   = rvab_r_yz + t_r * d1_r;
+    end
+
+    CP_r = [rvwv_r(2); rvwv_r(3) - rs];
+
+    % -----------------------------------------------------------------
+    %  LEFT WHEEL — inboard points rotated by +alpha (left side up)
+    %  For left wheel, body rolling right means left side lifts (droop)
+    %  Inboard points on left also rotate by +alpha about centreline
+    % -----------------------------------------------------------------
+    rvab_l0  = (par_rc_l.rvak + par_rc_l.rvbk) / 2;
+    rvab_l0_yz = [rvab_l0(2); rvab_l0(3)];
+    rvab_l_yz  = R_roll * rvab_l0_yz;
+
+    rvde_l0  = (par_rc_l.rvdk + par_rc_l.rvek) / 2;
+    rvde_l0_yz = [rvde_l0(2); rvde_l0(3)];
+    rvde_l_yz  = R_roll * rvde_l0_yz;
+
+    [~, rvwv_l, ~, ~] = fun_05_dblwb_kin(-phi_k, 0, par_rc_l);
+
+    rvc_l0_yz  = [par_rc_l.rvck(2); par_rc_l.rvck(3)];
+    rvf_l0_yz  = [par_rc_l.rvfk(2); par_rc_l.rvfk(3)];
+
+    dZ_l = rvwv_l(3) - par_rc_l.rvwk(3);
+    dY_l = rvwv_l(2) - par_rc_l.rvwk(2);
+
+    rvc_l_yz = [rvc_l0_yz(1) + dY_l; rvc_l0_yz(2) + dZ_l];
+    rvf_l_yz = [rvf_l0_yz(1) + dY_l; rvf_l0_yz(2) + dZ_l];
+
+    d1_l = rvc_l_yz - rvab_l_yz;
+    d2_l = rvf_l_yz - rvde_l_yz;
+
+    cross_l = d1_l(1)*d2_l(2) - d1_l(2)*d2_l(1);
+
+    if abs(cross_l) < 1e-10
+        IC_l = [Inf; Inf];
+    else
+        diff_l = rvde_l_yz - rvab_l_yz;
+        t_l    = (diff_l(1)*d2_l(2) - diff_l(2)*d2_l(1)) / cross_l;
+        IC_l   = rvab_l_yz + t_l * d1_l;
+    end
+
+    CP_l = [rvwv_l(2); rvwv_l(3) - rs];
+
+    % Store
+    CP_r_y_sweep(k) = CP_r(1);
+    CP_r_z_sweep(k) = CP_r(2);
+    yw_rc_r(k) = rvwv_r(2);  zw_rc_r(k) = rvwv_r(3);
+    yw_rc_l(k) = rvwv_l(2);  zw_rc_l(k) = rvwv_l(3);
+    IC_r_y_sweep(k) = IC_r(1);
+    IC_r_z_sweep(k) = IC_r(2);
+
+    % -----------------------------------------------------------------
+    %  RC = intersection of CP_r->IC_r and CP_l->IC_l lines
+    % -----------------------------------------------------------------
+    if any(isinf(IC_r)) || any(isinf(IC_l))
+        rc_y(k)      = 0;
+        rc_height(k) = 0;
+        continue
+    end
+
+    dir_r = IC_r - CP_r;
+    dir_l = IC_l - CP_l;
+
+    A     = [dir_r(1), -dir_l(1); dir_r(2), -dir_l(2)];
+    b_vec = CP_l - CP_r;
+    det_A = A(1,1)*A(2,2) - A(1,2)*A(2,1);
+
+    if abs(det_A) < 1e-12
+        rc_y(k)      = 0;
+        rc_height(k) = (CP_r(2) + CP_l(2)) / 2;
+        continue
+    end
+
+    t_sol        = (b_vec(1)*A(2,2) - b_vec(2)*A(1,2)) / det_A;
+    RC_pt        = CP_r + t_sol * dir_r;
+    rc_y(k)      = RC_pt(1);
+    rc_height(k) = RC_pt(2);
+end
+
+% -------------------------------------------------------------------------
+%  KEY INDICES AND VALUES
+% -------------------------------------------------------------------------
+[~, idx_des_rc] = min(abs(phi_rc_sweep));
+[~, idx_1g]     = min(abs(phi_rc_sweep - phi_rc_outer));
+
+rc_height_design  = rc_height(idx_des_rc);
+rc_height_1g      = rc_height(idx_1g);
+rc_vert_migration = (rc_height_1g - rc_height_design) * 1000;
+
+rc_y_design       = rc_y(idx_des_rc);
+rc_y_1g           = rc_y(idx_1g);
+rc_lat_migration  = (rc_y_1g - rc_y_design) * 1000;
+
+IC_r_y_design  = IC_r_y_sweep(idx_des_rc);
+IC_r_z_design  = IC_r_z_sweep(idx_des_rc);
+IC_r_y_1g      = IC_r_y_sweep(idx_1g);
+IC_r_z_1g      = IC_r_z_sweep(idx_1g);
+CP_r_y_design  = CP_r_y_sweep(idx_des_rc);
+CP_r_y_1g      = CP_r_y_sweep(idx_1g);
+
+IC_y_migration = (IC_r_y_1g - IC_r_y_design) * 1000;
+CP_y_migration = (CP_r_y_1g - CP_r_y_design) * 1000;
+
+heave_rc_mm = interp1(phi(1:n), (zw(:,m0) - zw(n0,m0))*1000, ...
+                      phi_rc_sweep, 'linear', 'extrap');
+
+fprintf('\n===== RC SLOPE METHOD VALIDATION =====\n')
+fprintf('At design (phi=0): RC_y should be ~0 for symmetric geometry\n')
+fprintf('RC_y at design:    %+.4f mm\n', rc_y_design*1000)
+fprintf('RC_z at design:    %.4f mm\n',  rc_height_design*1000)
+fprintf('\nAt 1G outer phi = +%.4f deg:\n', phi_rc_outer*180/pi)
+fprintf('RC_y at 1G:        %+.4f mm\n', rc_y_1g*1000)
+fprintf('RC_z at 1G:        %.4f mm\n',  rc_height_1g*1000)
+fprintf('\n===== ROLL CENTRE MIGRATION =====\n')
+fprintf('RC vertical migration:    %+.4f mm\n', rc_vert_migration)
+fprintf('RC lateral migration:     %+.4f mm\n', rc_lat_migration)
+fprintf('IC lateral migration:     %+.4f mm\n', IC_y_migration)
+fprintf('CP lateral migration:     %+.4f mm\n', CP_y_migration)
+
+% Convert phi sweep to heave mm
+heave_rc_mm = interp1(phi(1:n), (zw(:,m0) - zw(n0,m0))*1000, ...
+                      phi_rc_sweep, 'linear', 'extrap');
+
+fprintf('\n===== ROLL CENTRE ESTIMATION =====\n')
+fprintf('Design RC height:         %.2f mm\n',  rc_height_design*1000)
+fprintf('RC height at 1G:          %.2f mm\n',  rc_height_1g*1000)
+fprintf('RC vertical migration:    %+.2f mm\n', rc_vert_migration)
+fprintf('\nIC right - Design:        Y = %+.2f mm,  Z = %.2f mm\n', IC_r_y_design*1000, IC_r_z_design*1000)
+fprintf('IC right - At 1G:         Y = %+.2f mm,  Z = %.2f mm\n', IC_r_y_1g*1000,     IC_r_z_1g*1000)
+fprintf('IC lateral migration:     %+.2f mm\n', IC_y_migration)
+fprintf('CP lateral migration:     %+.2f mm\n', CP_y_migration)
+fprintf('\nNote: geometric RC — no compliance or tyre deflection\n')
+
+% -------------------------------------------------------------------------
+%  FIGURE
+% -------------------------------------------------------------------------
+figure('Name', ['Roll Centre Migration  |  Front Axle  |  ', ...
+    num2str(lat_accel_rc), 'G LEFT corner  (lateral accel toward +Y)'])
+
+% Top-left: RC height vs heave
+axes('position', [0.05, 0.57, 0.27, 0.35])
+hold on, grid on
+title({'RC Height vs Heave  |  Front Axle'; ...
+       [num2str(lat_accel_rc), 'G LEFT corner  |  Right = outer (jounce)  |  Left = inner (droop)  |  ', ...
+        'Migration: ', sprintf('%+.1f', rc_vert_migration), ' mm']}, ...
+    'FontWeight', 'bold')
+xlabel('Wheel centre heave  [mm]  (+: jounce)')
+ylabel('RC height  [mm]  (+ above ground)')
+
+ylims_rc = [min(rc_height)*1000*0.85, max(rc_height)*1000*1.1];
+fill([0, max(heave_rc_mm), max(heave_rc_mm), 0], ...
+     [ylims_rc(1), ylims_rc(1), ylims_rc(2), ylims_rc(2)], ...
+     [1 0.9 0.9], 'EdgeColor','none','FaceAlpha',0.3,'HandleVisibility','off')
+fill([min(heave_rc_mm), 0, 0, min(heave_rc_mm)], ...
+     [ylims_rc(1), ylims_rc(1), ylims_rc(2), ylims_rc(2)], ...
+     [0.9 0.9 1], 'EdgeColor','none','FaceAlpha',0.3,'HandleVisibility','off')
+plot(heave_rc_mm, rc_height*1000, 'b-', 'LineWidth', 2.5, 'DisplayName', 'RC height')
+plot(heave_rc_mm(idx_des_rc), rc_height_design*1000, 'g*', 'MarkerSize', 14, 'LineWidth', 2, ...
+    'DisplayName', sprintf('Design: %.1f mm', rc_height_design*1000))
+plot(heave_rc_mm(idx_1g), rc_height_1g*1000, 'r^', 'MarkerSize', 10, 'MarkerFaceColor', 'r', ...
+    'DisplayName', sprintf('At 1G: %.1f mm', rc_height_1g*1000))
+yline(0, 'k--', 'LineWidth', 1, 'DisplayName', 'Ground')
+xline(0, 'k:',  'LineWidth', 1, 'HandleVisibility', 'off')
+text(max(heave_rc_mm)*0.5,  ylims_rc(1)+(ylims_rc(2)-ylims_rc(1))*0.06, ...
+    'JOUNCE', 'Color',[0.7 0 0],'FontSize',8,'FontWeight','bold')
+text(min(heave_rc_mm)*0.55, ylims_rc(1)+(ylims_rc(2)-ylims_rc(1))*0.06, ...
+    'DROOP',  'Color',[0 0 0.7],'FontSize',8,'FontWeight','bold')
+ylim(ylims_rc)
+legend('Location', 'northeast', 'FontSize', 9)
+
+% Top-centre: IC and CP lateral migration
+axes('position', [0.36, 0.57, 0.17, 0.35])
+hold on, grid on
+title({'RC & CP Lateral Position vs Heave'; ...
+       [num2str(lat_accel_rc), 'G LEFT corner  |  RC mig: ', ...
+        sprintf('%+.2f', rc_lat_migration), ' mm  |  CP mig: ', ...
+        sprintf('%+.2f', CP_y_migration), ' mm']}, ...
+    'FontWeight', 'bold')
+xlabel('Heave  [mm]  (+: jounce)')
+ylabel('Lateral pos.  [mm]  (+ left of CL)')
+
+cp_pad = max(max(abs(CP_r_y_sweep))*1000 * 0.01, 0.5);
+y_lo = min(CP_r_y_sweep)*1000 - cp_pad;
+y_hi = max(CP_r_y_sweep)*1000 + cp_pad;
+
+fill([0, max(heave_rc_mm), max(heave_rc_mm), 0], ...
+     [y_lo, y_lo, y_hi, y_hi], ...
+     [1 0.9 0.9], 'EdgeColor','none','FaceAlpha',0.3,'HandleVisibility','off')
+fill([min(heave_rc_mm), 0, 0, min(heave_rc_mm)], ...
+     [y_lo, y_lo, y_hi, y_hi], ...
+     [0.9 0.9 1], 'EdgeColor','none','FaceAlpha',0.3,'HandleVisibility','off')
+
+plot(heave_rc_mm, CP_r_y_sweep*1000, 'b--', 'LineWidth', 2, 'DisplayName', 'CP Y - Right')
+plot(heave_rc_mm, rc_y*1000,         'k-',  'LineWidth', 2, 'DisplayName', 'RC lateral pos.')
+plot(heave_rc_mm(idx_des_rc), rc_y_design*1000, 'g*', 'MarkerSize', 12, 'LineWidth', 2, ...
+    'DisplayName', sprintf('RC design: %+.2f mm', rc_y_design*1000))
+plot(heave_rc_mm(idx_1g), rc_y_1g*1000, 'r^', 'MarkerSize', 8, 'MarkerFaceColor', 'r', ...
+    'DisplayName', sprintf('RC at 1G: %+.2f mm', rc_y_1g*1000))
+ylim([y_lo, y_hi])
+yline(0, 'k--', 'LineWidth', 1, 'DisplayName', 'Centreline')
+xline(0, 'k:',  'LineWidth', 1, 'HandleVisibility', 'off')
+legend('Location', 'best', 'FontSize', 7.5)
+
+% Top-right: RC height vs IC lateral — migration path
+axes('position', [0.57, 0.57, 0.17, 0.35])
+hold on, grid on
+title({'RC Height vs IC Lateral'; 'Migration path'}, 'FontWeight', 'bold')
+xlabel('IC lateral  [mm]  (+ left)')
+ylabel('RC height  [mm]')
+
+scatter(IC_r_y_sweep*1000, rc_height*1000, 30, heave_rc_mm, 'filled', ...
+    'DisplayName', 'Path (by heave)')
+cbar_rc = colorbar;
+cbar_rc.Label.String = 'Heave [mm]';
+cbar_rc.Label.FontSize = 7;
+cbar_rc.FontSize = 7;
+cbar_rc.Position(3) = 0.008;
+
+plot(IC_r_y_design*1000, rc_height_design*1000, 'g*', 'MarkerSize', 14, 'LineWidth', 2, ...
+    'DisplayName', sprintf('Design (%.1f, %.1f)', IC_r_y_design*1000, rc_height_design*1000))
+plot(IC_r_y_1g*1000, rc_height_1g*1000, 'r^', 'MarkerSize', 10, 'MarkerFaceColor', 'r', ...
+    'DisplayName', sprintf('1G (%.1f, %.1f)', IC_r_y_1g*1000, rc_height_1g*1000))
+if abs(rc_vert_migration) > 0.01 || abs(IC_y_migration) > 0.01
+    quiver(IC_r_y_design*1000, rc_height_design*1000, ...
+           IC_y_migration, rc_vert_migration, 0, 'k-', 'LineWidth', 2, ...
+           'MaxHeadSize', 0.5, 'DisplayName', ...
+           sprintf('Mig (%+.1f, %+.1f) mm', IC_y_migration, rc_vert_migration))
+end
+yline(0, 'k--', 'LineWidth', 1, 'HandleVisibility', 'off')
+legend('Location', 'best', 'FontSize', 7)
+
+% Summary table
+axes('position', [0.78, 0.57, 0.20, 0.35])
+axis off
+title('RC Summary', 'FontWeight', 'bold')
+
+sum_rc = {
+    'Parameter',                 'Value';
+    'Design RC height',          sprintf('%.2f mm',  rc_height_design*1000);
+    'RC height at 1G',           sprintf('%.2f mm',  rc_height_1g*1000);
+    'RC vertical migration',     sprintf('%+.2f mm', rc_vert_migration);
+    'RC lateral migration',      sprintf('%+.2f mm', rc_lat_migration);
+    'Design IC lateral',         sprintf('%+.2f mm', IC_r_y_design*1000);
+    'IC lateral at 1G',          sprintf('%+.2f mm', IC_r_y_1g*1000);
+    'IC lateral migration',      sprintf('%+.2f mm', IC_y_migration);
+    'CP lateral migration',      sprintf('%+.2f mm', CP_y_migration);
+    'Total roll at 1G',          sprintf('%.3f deg', roll_angle_rc_deg);
+    'Outer phi (jounce)',        sprintf('+%.3f deg', phi_rc_outer*180/pi);
+};
+
+col_x_rc = [0.01, 0.52];
+row_y_rc  = 0.92;
+row_dy_rc = 0.100;
+
+for c = 1:2
+    text(col_x_rc(c), row_y_rc, sum_rc{1,c}, ...
+        'FontSize', 8, 'FontWeight', 'bold', 'Interpreter', 'none')
+end
+for r = 2:size(sum_rc,1)
+    ry = row_y_rc - (r-1)*row_dy_rc;
+    if mod(r,2) == 0
+        patch([0, 1, 1, 0], [ry-row_dy_rc*0.3, ry-row_dy_rc*0.3, ...
+               ry+row_dy_rc*0.7, ry+row_dy_rc*0.7], ...
+              [0.93 0.93 0.93], 'EdgeColor', 'none', 'FaceAlpha', 0.6)
+    end
+    text(col_x_rc(1), ry, sum_rc{r,1}, 'FontSize', 7.5, 'Interpreter', 'none')
+    text(col_x_rc(2), ry, sum_rc{r,2}, 'FontSize', 7.5, 'Interpreter', 'none', ...
+        'FontWeight', 'bold')
+end
+
+% Bottom: YZ plane
+axes('position', [0.05, 0.13, 0.65, 0.32])
+hold on, grid on
+title({'YZ Plane — Wishbone Geometry  |  Design Position'; ...
+       ['Left corner (lateral accel = +Y)  |  Right wheel = outer  |  Left wheel = inner']}, ...
+    'FontWeight', 'bold')
+xlabel('y  [m]  (+: left,  -: right)')
+ylabel('z  [m]  (+: upward)')
+
+rvab_des   = (par.rvak + par.rvbk) / 2;
+rvde_des   = (par.rvdk + par.rvek) / 2;
+rvab_l_des = (par_rc_l.rvak + par_rc_l.rvbk) / 2;
+rvde_l_des = (par_rc_l.rvdk + par_rc_l.rvek) / 2;
+
+lower_dir   = [par.rvck(2)-rvab_des(2);     par.rvck(3)-rvab_des(3)];
+upper_dir   = [par.rvfk(2)-rvde_des(2);     par.rvfk(3)-rvde_des(3)];
+lower_dir_l = [par_rc_l.rvck(2)-rvab_l_des(2); par_rc_l.rvck(3)-rvab_l_des(3)];
+upper_dir_l = [par_rc_l.rvfk(2)-rvde_l_des(2); par_rc_l.rvfk(3)-rvde_l_des(3)];
+lower_dir   = lower_dir   / norm(lower_dir);
+upper_dir   = upper_dir   / norm(upper_dir);
+lower_dir_l = lower_dir_l / norm(lower_dir_l);
+upper_dir_l = upper_dir_l / norm(upper_dir_l);
+
+t_both = linspace(-2, 8, 2);
+
+% Right wishbone
+plot([rvab_des(2), par.rvck(2)], [rvab_des(3), par.rvck(3)], ...
+    'b-', 'LineWidth', 2.5, 'DisplayName', 'Lower arm - Right')
+plot([rvde_des(2), par.rvfk(2)], [rvde_des(3), par.rvfk(3)], ...
+    'b--','LineWidth', 2.5, 'DisplayName', 'Upper arm - Right')
+plot(par.rvck(2) + t_both*lower_dir(1), par.rvck(3) + t_both*lower_dir(2), ...
+    'b:', 'LineWidth', 1, 'HandleVisibility', 'off')
+plot(par.rvfk(2) + t_both*upper_dir(1), par.rvfk(3) + t_both*upper_dir(2), ...
+    'b:', 'LineWidth', 1, 'HandleVisibility', 'off')
+
+% Left wishbone
+plot([rvab_l_des(2), par_rc_l.rvck(2)], [rvab_l_des(3), par_rc_l.rvck(3)], ...
+    'r-', 'LineWidth', 2.5, 'DisplayName', 'Lower arm - Left')
+plot([rvde_l_des(2), par_rc_l.rvfk(2)], [rvde_l_des(3), par_rc_l.rvfk(3)], ...
+    'r--','LineWidth', 2.5, 'DisplayName', 'Upper arm - Left')
+plot(par_rc_l.rvck(2) + t_both*lower_dir_l(1), par_rc_l.rvck(3) + t_both*lower_dir_l(2), ...
+    'r:', 'LineWidth', 1, 'HandleVisibility', 'off')
+plot(par_rc_l.rvfk(2) + t_both*upper_dir_l(1), par_rc_l.rvfk(3) + t_both*upper_dir_l(2), ...
+    'r:', 'LineWidth', 1, 'HandleVisibility', 'off')
+
+% Contact patches
+CP_r_y = par.rvwk(2);       CP_r_z = par.rvwk(3) - rs;
+CP_l_y = par_rc_l.rvwk(2);  CP_l_z = par_rc_l.rvwk(3) - rs;
+plot(CP_r_y, CP_r_z, 'bs', 'MarkerSize', 10, 'MarkerFaceColor', 'b', 'DisplayName', 'CP - Right')
+plot(CP_l_y, CP_l_z, 'rs', 'MarkerSize', 10, 'MarkerFaceColor', 'r', 'DisplayName', 'CP - Left')
+
+% IC positions
+P1 = [rvab_des(2); rvab_des(3)];  d1 = lower_dir;
+P2 = [rvde_des(2); rvde_des(3)];  d2 = upper_dir;
+cross_d = d1(1)*d2(2) - d1(2)*d2(1);
+IC_r_des = [NaN; NaN];
+if abs(cross_d) > 1e-10
+    diff_P   = P2 - P1;
+    t_ic     = (diff_P(1)*d2(2) - diff_P(2)*d2(1)) / cross_d;
+    IC_r_des = P1 + t_ic * d1;
+    plot(IC_r_des(1), IC_r_des(2), 'b+', 'MarkerSize', 14, 'LineWidth', 2.5, ...
+        'DisplayName', sprintf('IC Right (%.0f, %.0f mm)', IC_r_des(1)*1000, IC_r_des(2)*1000))
+end
+
+P1_l = [rvab_l_des(2); rvab_l_des(3)];  d1_l = lower_dir_l;
+P2_l = [rvde_l_des(2); rvde_l_des(3)];  d2_l = upper_dir_l;
+cross_l = d1_l(1)*d2_l(2) - d1_l(2)*d2_l(1);
+IC_l_des = [NaN; NaN];
+if abs(cross_l) > 1e-10
+    diff_Pl  = P2_l - P1_l;
+    t_ic_l   = (diff_Pl(1)*d2_l(2) - diff_Pl(2)*d2_l(1)) / cross_l;
+    IC_l_des = P1_l + t_ic_l * d1_l;
+    plot(IC_l_des(1), IC_l_des(2), 'r+', 'MarkerSize', 14, 'LineWidth', 2.5, ...
+        'DisplayName', sprintf('IC Left (%.0f, %.0f mm)', IC_l_des(1)*1000, IC_l_des(2)*1000))
+end
+
+% RC construction line
+if ~any(isnan(IC_r_des))
+    t_rc_r = -CP_r_y / (IC_r_des(1) - CP_r_y);
+    RC_z_r = CP_r_z + t_rc_r * (IC_r_des(2) - CP_r_z);
+    plot([CP_r_y, IC_r_des(1)], [CP_r_z, IC_r_des(2)], ...
+        'b-.', 'LineWidth', 1.5, 'HandleVisibility', 'off')
+    plot([IC_r_des(1), 0], [IC_r_des(2), RC_z_r], ...
+        'b-.', 'LineWidth', 1.5, 'HandleVisibility', 'off')
+end
+
+% RC and wheel centre markers
+plot(0, rc_height_design, 'g*', 'MarkerSize', 16, 'LineWidth', 2.5, ...
+    'DisplayName', sprintf('Design RC: %.1f mm', rc_height_design*1000))
+plot(0, rc_height_1g, 'r^', 'MarkerSize', 10, 'MarkerFaceColor', 'r', ...
+    'DisplayName', sprintf('1G RC: %.1f mm', rc_height_1g*1000))
+plot(par.rvwk(2),      par.rvwk(3),      'bo', 'MarkerSize', 8, ...
+    'MarkerFaceColor', [0.7 0.85 1], 'DisplayName', 'Wheel centre - Right')
+plot(par_rc_l.rvwk(2), par_rc_l.rvwk(3), 'ro', 'MarkerSize', 8, ...
+    'MarkerFaceColor', [1 0.8 0.8],  'DisplayName', 'Wheel centre - Left')
+
+yline(0, 'k--', 'LineWidth', 1.2, 'DisplayName', 'Ground')
+xline(0, 'k-',  'LineWidth', 0.8, 'HandleVisibility', 'off')
+xlim([-0.75, 0.75])
+ylim([-0.05, 0.35])
+legend('Location', 'eastoutside', 'FontSize', 7.5)
+
+rc_ribbon = {
+    ['Front Axle  |  ', num2str(lat_accel_rc), 'G LEFT corner  |  ', ...
+ 'Lateral accel direction: +Y (leftward)  |  Roll gradient: ', ...
+     num2str(roll_gradient_rc), ' deg/G  |  Total roll: ', ...
+     sprintf('%.3f', roll_angle_rc_deg), ' deg  |  Right wheel rolls down (jounce)'], ...
+    ['Design RC: Z = ', sprintf('%.2f', rc_height_design*1000), ' mm  |  ', ...
+     'RC at 1G: Z = ', sprintf('%.2f', rc_height_1g*1000), ' mm  |  ', ...
+     'Vertical migration: ', sprintf('%+.2f', rc_vert_migration), ' mm  |  ', ...
+     'RC lateral migration: ', sprintf('%+.2f', rc_lat_migration), ' mm'], ...
+    'RC from wishbone YZ projections — body roll method (inboard points move with body)', ...
+    'Positive RC lateral migration = RC moves toward +Y (left/inner wheel side)'
+};
+add_sign_box(rc_ribbon, wheel_side)
 
 %% -----------------------------------------------------------------------
 %  VALIDATION SUMMARY

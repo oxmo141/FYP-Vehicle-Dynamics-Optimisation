@@ -1,91 +1,66 @@
 function [t, TLTf, TLTr, Total_LLT, roll_angle, front_roll_out, rear_roll_out] = computeVehicleLLT(tspan, x0)
-    % COMPUTEVEHICLELLT Computes lateral load transfer (LLT) using time-varying
-    % lat_g, corner displacements from linear pods, and axle delay from vehicle speed.
-    %
-    % Inputs:
-    %   tspan    - [t_start t_end] (default: full MoTec time range)
-    %   x0       - [front_roll; front_roll_rate; rear_roll; rear_roll_rate] (default: zeros)
-    %
-    % Outputs:
-    %   t         - Time vector from ODE solver
-    %   TLTf      - Total lateral load transfer, front axle (Nx1)
-    %   TLTr      - Total lateral load transfer, rear axle (Nx1)
-    %   Total_LLT - Total vehicle LLT verification (Nx1)
-    %   roll_angle - Vehicle roll angle (Nx1)
 
     %% ── Load Parameters & MoTec Data ────────────────────────────────────────────
     paramR26;
-    MoTecData;
+    load('MoTeC data/JTCendurance_test9.mat');
 
     %% ── Extract Signals ──────────────────────────────────────────────────────────
     % Lateral acceleration
-    lat_g_time = data.Average_Lateral_G.Time;
-    lat_g_vec  = data.Average_Lateral_G.Value;
+    lat_g_time = Average_Lat_G.Time;
+    lat_g_vec  = Average_Lat_G.Value;
 
-    % Vehicle speed (used for axle delay computation)
-    spd_time   = data.Vehicle_Speed_Value.Time;
-    spd_vec    = data.Vehicle_Speed_Value.Value * 0.277778;  % [m/s] — convert 
+    % Vehicle speed [m/s] — convert from km/h
+    spd_time   = Vehicle_Speed_Value.Time;
+    spd_vec    = Vehicle_Speed_Value.Value * 0.277778;
 
     % ── Linear Pod Displacements [m] ─────────────────────────────────────────────
-    pod_time   = data.Damper_Front_Left_Linear.Time;  % Assume all pods share same time base
+    pod_time   = Damper_Front_Left_Linear.Time;
 
-    disp_FL    = data.Damper_Front_Left_Linear.Value * 1E-3;
-    disp_FR    = data.Damper_Front_Right_Linear.Value * 1E-3;
-    disp_RL    = data.Damper_Rear_Left_Linear.Value * 1E-3;
-    disp_RR    = data.Damper_Rear_Right_Linear.Value * 1E-3;
+    disp_FL    = Damper_Front_Left_Linear.Value  * 1e-3;
+    disp_FR    = Damper_Front_Right_Linear.Value * 1e-3;
+    disp_RL    = Damper_Rear_Left_Linear.Value   * 1e-3;
+    disp_RR    = Damper_Rear_Right_Linear.Value  * 1e-3;
 
-    % ── Smooth Pod Data using Butterworth Filter ────────────────────────────────
-    fs = 1 / mean(diff(pod_time)); % Sampling frequency
-    fc = 5; % Cutoff frequency (Hz) - adjust based on your needs
-    [b, a] = butter(2, fc / (fs / 2)); % 2nd order Butterworth filter
+    % ── Smooth Pod Data using Butterworth Filter ──────────────────────────────────
+    fs = 1 / mean(diff(pod_time));
+    fc = 5;
+    [b, a] = butter(2, fc / (fs / 2));
 
-    % Apply filter to the displacements
     disp_FL_smooth = filtfilt(b, a, disp_FL);
     disp_FR_smooth = filtfilt(b, a, disp_FR);
     disp_RL_smooth = filtfilt(b, a, disp_RL);
     disp_RR_smooth = filtfilt(b, a, disp_RR);
 
-    % ── Compute Pod Velocities (central difference) ───────────────────────────────
-    dt_pod     = mean(diff(pod_time));          % Assumes uniform sampling
-    vel_FL     = gradient(disp_FL_smooth, dt_pod);
-    vel_FR     = gradient(disp_FR_smooth, dt_pod);
-    vel_RL     = gradient(disp_RL_smooth, dt_pod);
-    vel_RR     = gradient(disp_RR_smooth, dt_pod);
+    % ── Compute Pod Velocities ────────────────────────────────────────────────────
+    dt_pod  = mean(diff(pod_time));
+    vel_FL  = gradient(disp_FL_smooth, dt_pod);
+    vel_FR  = gradient(disp_FR_smooth, dt_pod);
+    vel_RL  = gradient(disp_RL_smooth, dt_pod);
+    vel_RR  = gradient(disp_RR_smooth, dt_pod);
 
-    % ── Compute Front Roll Angle & Rate from Pods ─────────────────────────────────
-    front_roll_meas = (disp_FL_smooth - disp_FR_smooth) / car.track;
+    % ── Compute Front & Rear Roll Angle and Rate from Pods ────────────────────────
+    front_roll_meas      = (disp_FL_smooth - disp_FR_smooth) / car.track;
     front_roll_rate_meas = (vel_FL - vel_FR) / car.track;
-
-    rear_roll_meas  = (disp_RL_smooth - disp_RR_smooth) / car.track;
+    rear_roll_meas       = (disp_RL_smooth - disp_RR_smooth) / car.track;
     rear_roll_rate_meas  = (vel_RL - vel_RR) / car.track;
 
     %% ── Compute Axle Delay (Time-Varying) ────────────────────────────────────────
-    v_min      = 1.0;                          % Minimum speed threshold [m/s]
+    v_min       = 1.0;
     spd_clamped = max(spd_vec, v_min);
-
-    % Interpolate speed onto pod time base
     spd_on_pod  = interp1(spd_time, spd_clamped, pod_time, 'linear', 'extrap');
+    tau_vec     = car.wheelbase ./ spd_on_pod;
 
-    % Time delay at each moment
-    tau_vec     = car.wheelbase ./ spd_on_pod; % [s], time-varying
-
-    % Build delayed rear time axis:
-    t_rear_delayed = pod_time - tau_vec;       % Shifted time vector
-
-    % Interpolate rear pod signals onto delayed time axis
+    t_rear_delayed         = pod_time - tau_vec;
     t_rear_delayed_clamped = max(t_rear_delayed, pod_time(1));
 
-    rear_roll_delayed      = interp1(pod_time, rear_roll_meas, ...
-                                     t_rear_delayed_clamped, 'linear', 'extrap');
-    rear_roll_rate_delayed = interp1(pod_time, rear_roll_rate_meas, ...
-                                     t_rear_delayed_clamped, 'linear', 'extrap');
+    rear_roll_delayed      = interp1(pod_time, rear_roll_meas,      t_rear_delayed_clamped, 'linear', 'extrap');
+    rear_roll_rate_delayed = interp1(pod_time, rear_roll_rate_meas, t_rear_delayed_clamped, 'linear', 'extrap');
 
     %% ── Default Inputs ───────────────────────────────────────────────────────────
     if nargin < 1 || isempty(tspan)
         tspan = [pod_time(1), pod_time(end)];
     end
     if nargin < 2 || isempty(x0)
-        % Seed initial conditions from measured pod data at t_start
         x0 = [
             interp1(pod_time, front_roll_meas,       tspan(1), 'linear', 'extrap');
             interp1(pod_time, front_roll_rate_meas,  tspan(1), 'linear', 'extrap');
@@ -94,100 +69,76 @@ function [t, TLTf, TLTr, Total_LLT, roll_angle, front_roll_out, rear_roll_out] =
         ];
     end
 
-    %% ── Anonymous Function Handle (Passes All Signals by Closure) ────────────────
+    %% ── Solve ODE ────────────────────────────────────────────────────────────────
     ode_fun = @(t_now, x) eom_local(t_now, x, ...
-        lat_g_time,  lat_g_vec,  ...
-        pod_time,                ...
-        front_roll_meas,         front_roll_rate_meas, ...
-        rear_roll_delayed,       rear_roll_rate_delayed, ...
+        lat_g_time, lat_g_vec, pod_time, ...
+        front_roll_meas, front_roll_rate_meas, ...
+        rear_roll_delayed, rear_roll_rate_delayed, ...
         car, front, rear, frontunsprung, rearunsprung);
 
-    %% ── Solve ODE ────────────────────────────────────────────────────────────────
-    opts = odeset('RelTol', 1e-4, 'AbsTol', 1e-6);
+    opts   = odeset('RelTol', 1e-4, 'AbsTol', 1e-6);
     [t, x] = ode45(ode_fun, tspan, x0, opts);
 
-    %% ── Post-Processing: Interpolate All Signals onto ODE Time Vector ────────────
-    lat_g_out         = interp1(lat_g_time, lat_g_vec,          t, 'linear', 'extrap');
-    front_roll_out    = interp1(pod_time,   front_roll_meas,     t, 'linear', 'extrap');
-    front_roll_rate_out = interp1(pod_time, front_roll_rate_meas,t, 'linear', 'extrap');
-    rear_roll_out     = interp1(pod_time,   rear_roll_delayed,   t, 'linear', 'extrap');
-    rear_roll_rate_out = interp1(pod_time,  rear_roll_rate_delayed, t, 'linear', 'extrap');
+    %% ── Post-Processing ──────────────────────────────────────────────────────────
+    lat_g_out           = interp1(lat_g_time, lat_g_vec,           t, 'linear', 'extrap');
+    front_roll_out      = interp1(pod_time,   front_roll_meas,     t, 'linear', 'extrap');
+    front_roll_rate_out = interp1(pod_time,   front_roll_rate_meas,t, 'linear', 'extrap');
+    rear_roll_out       = interp1(pod_time,   rear_roll_delayed,   t, 'linear', 'extrap');
+    rear_roll_rate_out  = interp1(pod_time,   rear_roll_rate_delayed, t, 'linear', 'extrap');
 
-    %% ── Geometric Load Transfer (Time-Varying lat_g) ─────────────────────────────
+    %% ── Geometric Load Transfer ──────────────────────────────────────────────────
     g_val    = 9.81;
     wd_front = weight_distribution / 100;
 
     GLTf = (car.m * wd_front       * g_val .* lat_g_out * front.RC) / car.track;
     GLTr = (car.m * (1 - wd_front) * g_val .* lat_g_out * rear.RC)  / car.track;
 
-    %% ── Elastic Load Transfer (Using Measured Pod States) ────────────────────────
-    % Use measured displacements/velocities (from pods) for spring and damper LLT
+    %% ── Elastic Load Transfer ────────────────────────────────────────────────────
     ELTf_spring = front_roll_out     .* front.k_roll;
     ELTf_damper = front_roll_rate_out .* front.cs_roll;
     ELTr_spring = rear_roll_out      .* rear.k_roll;
     ELTr_damper = rear_roll_rate_out  .* rear.cs_roll;
 
     %% ── Total Load Transfer ──────────────────────────────────────────────────────
-    TLTf = ELTf_spring + ELTf_damper + GLTf;
-    TLTr = ELTr_spring + ELTr_damper + GLTr;
-
-    %% ── Total Vehicle LLT (Verification) ─────────────────────────────────────────
+    TLTf      = ELTf_spring + ELTf_damper + GLTf;
+    TLTr      = ELTr_spring + ELTr_damper + GLTr;
     Total_LLT = (lat_g_out .* g_val .* car.m .* car.cgh) / car.track;
+    roll_angle = (front_roll_out + rear_roll_out) / 2;
 
-    %% ── Calculate Average Roll Angle ─────────────────────────────────────────────
-    roll_angle = (front_roll_out + rear_roll_out) / 2; % Average roll angle
-
-    % Ensure variables are assigned before the end of the function
     if isempty(t) || isempty(TLTf) || isempty(TLTr) || isempty(Total_LLT) || isempty(roll_angle)
-        error('Output variables must be assigned: check input data and calculations.');
+        error('Output variables are empty: check input data and calculations.');
     end
-end % ── END computeVehicleLLT ──────────────────────────────────────────────────
+end
 
 
-%% ══ STANDALONE ODE FUNCTION ═══════════════════════════════════════════════════
+%% ── LOCAL ODE FUNCTION ───────────────────────────────────────────────────────
 function dxdt = eom_local(t_now, x, ...
-    lat_g_time, lat_g_vec, ...
-    pod_time, ...
+    lat_g_time, lat_g_vec, pod_time, ...
     front_roll_meas, front_roll_rate_meas, ...
     rear_roll_delayed, rear_roll_rate_delayed, ...
     car, front, rear, frontunsprung, rearunsprung)
 
-    % ── Interpolate lat_g at current time ────────────────────────────────────
-    lat_g_t = interp1(lat_g_time, lat_g_vec, t_now, 'linear', 'extrap');
+    lat_g_t           = interp1(lat_g_time, lat_g_vec,           t_now, 'linear', 'extrap');
+    front_roll_t      = interp1(pod_time,   front_roll_meas,      t_now, 'linear', 'extrap');
+    front_roll_rate_t = interp1(pod_time,   front_roll_rate_meas, t_now, 'linear', 'extrap');
+    rear_roll_t       = interp1(pod_time,   rear_roll_delayed,    t_now, 'linear', 'extrap');
+    rear_roll_rate_t  = interp1(pod_time,   rear_roll_rate_delayed,t_now,'linear', 'extrap');
 
-    % ── Interpolate measured pod states at current time ───────────────────────
-    front_roll_t      = interp1(pod_time, front_roll_meas,      t_now, 'linear', 'extrap');
-    front_roll_rate_t = interp1(pod_time, front_roll_rate_meas, t_now, 'linear', 'extrap');
-    rear_roll_t       = interp1(pod_time, rear_roll_delayed,    t_now, 'linear', 'extrap');
-    rear_roll_rate_t  = interp1(pod_time, rear_roll_rate_delayed,t_now,'linear', 'extrap');
-
-    % ── Compute moments ───────────────────────────────────────────────────────
     [~, M] = roll_angle(lat_g_t, car, front, rear, frontunsprung, rearunsprung);
 
-    % ── Roll stiffness & damping ──────────────────────────────────────────────
-    kf = front.k_roll;
-    kr = rear.k_roll;
-    cf = front.cs_roll;
-    cr = rear.cs_roll;
-    I  = 47.4; % Roll inertia [kg·m²]
+    kf = front.k_roll;  kr = rear.k_roll;
+    cf = front.cs_roll; cr = rear.cs_roll;
+    I  = 47.4;
+    alpha = 50;
 
-    % ── Error between ODE state and measured pod state ────────────────────────
-    % The ODE corrects itself toward measured displacement/velocity
-    % This acts as a soft constraint — the ODE is guided by real data
     err_front_disp = front_roll_t      - x(1);
     err_front_vel  = front_roll_rate_t - x(2);
     err_rear_disp  = rear_roll_t       - x(3);
     err_rear_vel   = rear_roll_rate_t  - x(4);
 
-    alpha = 50; % Correction gain — increase to track measured data more tightly
-
-    dxdt = zeros(4, 1);
-
-    % Front roll dynamics + measured correction
+    dxdt    = zeros(4, 1);
     dxdt(1) = x(2) + alpha * err_front_disp;
-    dxdt(2) = -(kf / I) * x(1) - (cf / I) * x(2) + M(1) / I + alpha * err_front_vel;
-
-    % Rear roll dynamics + measured correction (already delay-compensated)
+    dxdt(2) = -(kf/I)*x(1) - (cf/I)*x(2) + M(1)/I + alpha * err_front_vel;
     dxdt(3) = x(4) + alpha * err_rear_disp;
-    dxdt(4) = -(kr / I) * x(3) - (cr / I) * x(4) + M(2) / I + alpha * err_rear_vel;
+    dxdt(4) = -(kr/I)*x(3) - (cr/I)*x(4) + M(2)/I + alpha * err_rear_vel;
 end

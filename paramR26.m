@@ -37,8 +37,8 @@ rear.ARB = [505.68, 771.59] * 180/pi; % of ARB stiffness [Nm/rad of roll]
 front.ks = front.springs(3) * 175.12684; % spring rate
 rear.ks = rear.springs(2) * 175.12684;
 
-front.cs = 4050.8468 * 2/ (car.track)^2;
-rear.cs = 3705.0427 * 2/ (car.track)^2;
+front.cs = 4050.8468 * 2/ (car.track)^2; %780
+rear.cs = 3705.0427 * 2/ (car.track)^2; %
 
 car.Kt = (10^3)/0.0122; % tyre radial rate
 front.MR = 1.0; % motion ratio of coil over
