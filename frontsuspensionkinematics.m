@@ -736,6 +736,142 @@ for k = 1:length(key_sw)
 end
 
 %% -----------------------------------------------------------------------
+%  BICYCLE MODEL: Average Steering Ratio Polynomial Approximation
+%% -----------------------------------------------------------------------
+
+% Average SR across both wheels (bicycle model — single front wheel)
+SR_avg = (SR_right + SR_left) / 2;
+
+% Only use points where both wheels have valid SR
+valid_avg = ~isnan(SR_right) & ~isinf(SR_right) & ...
+            ~isnan(SR_left)  & ~isinf(SR_left);
+
+sw_fit_avg = sw_angle_deg(valid_avg);
+sr_fit_avg = SR_avg(valid_avg);
+
+% Polynomial fit — same degree as individual fits
+poly_degree_avg = poly_degree;   % inherits from earlier (= 4)
+p_avg = polyfit(sw_fit_avg, sr_fit_avg, poly_degree_avg);
+
+% Dense evaluation for smooth curve
+sr_poly_avg = polyval(p_avg, sw_dense);
+
+% R² goodness of fit
+ss_res_avg = sum((sr_fit_avg - polyval(p_avg, sw_fit_avg)).^2);
+ss_tot_avg = sum((sr_fit_avg - mean(sr_fit_avg)).^2);
+R2_avg     = 1 - ss_res_avg / ss_tot_avg;
+
+% ---- Print coefficients -------------------------------------------------
+fprintf('\n===== BICYCLE MODEL: Average SR Polynomial =====\n')
+fprintf('SR_avg(SW) = p(1)*SW^%d + p(2)*SW^%d + ... + p(%d)\n', ...
+        poly_degree_avg, poly_degree_avg-1, poly_degree_avg+1)
+fprintf('Polynomial degree: %d  |  R² = %.6f\n\n', poly_degree_avg, R2_avg)
+for k = 1:length(p_avg)
+    fprintf('  p_avg(%d) = %+.6e\n', k, p_avg(k))
+end
+
+% Convenience: anonymous function ready to paste into vehicle model
+fprintf('\nAnonymous function (SW in deg → SR [-]):\n')
+coeff_str = '';
+for k = 1:length(p_avg)
+    pw = poly_degree_avg - k + 1;
+    if pw > 1
+        coeff_str = [coeff_str, sprintf('(%+.6e).*SW.^%d + ', p_avg(k), pw)]; %#ok<AGROW>
+    elseif pw == 1
+        coeff_str = [coeff_str, sprintf('(%+.6e).*SW + ',     p_avg(k))];     %#ok<AGROW>
+    else
+        coeff_str = [coeff_str, sprintf('(%+.6e)',             p_avg(k))];     %#ok<AGROW>
+    end
+end
+fprintf('SR_avg = @(SW) %s;\n\n', coeff_str)
+
+% Sample values at key SW angles
+fprintf('--- Sample values ---\n')
+fprintf('%12s  %12s  %12s  %12s\n', 'SW [deg]', 'SR_R', 'SR_L', 'SR_avg (fit)')
+for k = 1:length(key_sw)
+    fprintf('%12.1f  %12.3f  %12.3f  %12.3f\n', ...
+        key_sw(k), ...
+        polyval(p_R,   key_sw(k)), ...
+        polyval(p_L,   key_sw(k)), ...
+        polyval(p_avg, key_sw(k)))
+end
+
+% Through-centre value
+SR_avg_centre = polyval(p_avg, 0);
+fprintf('\nSR_avg through centre (SW = 0): %.4f\n', SR_avg_centre)
+
+%% -----------------------------------------------------------------------
+%  FIGURE 8b: Bicycle Model Average SR
+%% -----------------------------------------------------------------------
+figure('Name', 'Figure - Bicycle Model Average Steering Ratio')
+
+% Top panel: SR comparison
+axes('position', [0.08, 0.60, 0.86, 0.28])
+hold on, grid on
+title({['Bicycle Model — Average Steering Ratio  |  Degree-', ...
+        num2str(poly_degree_avg), ' Polynomial Fit  |  R² = ', ...
+        sprintf('%.5f', R2_avg)]; 'Design ride height  (\phi = 0)'}, ...
+    'FontWeight', 'bold')
+xlabel('Steering wheel angle  [deg]  (+: left steer)')
+ylabel('Steering ratio  SR  [-]')
+plot(sw_angle_deg(valid_R),   SR_right(valid_R),   'b.',  'MarkerSize', 8, ...
+    'DisplayName', 'SR_{right}  (raw)')
+plot(sw_angle_deg(valid_L),   SR_left(valid_L),    'r.',  'MarkerSize', 8, ...
+    'DisplayName', 'SR_{left}  (raw)')
+plot(sw_angle_deg(valid_avg), SR_avg(valid_avg),   'ko',  'MarkerSize', 5, ...
+    'DisplayName', 'SR_{avg}  (raw)')
+plot(sw_dense, sr_poly_R,   'b--', 'LineWidth', 1.2, ...
+    'DisplayName', 'SR_{right}  poly')
+plot(sw_dense, sr_poly_L,   'r--', 'LineWidth', 1.2, ...
+    'DisplayName', 'SR_{left}  poly')
+plot(sw_dense, sr_poly_avg, 'k-',  'LineWidth', 2.5, ...
+    'DisplayName', sprintf('SR_{avg}  poly  (bicycle model)'))
+plot(0, SR_avg_centre, 'g^', 'MarkerSize', 10, 'MarkerFaceColor', 'g', ...
+    'DisplayName', sprintf('Centre SR_{avg} = %.3f', SR_avg_centre))
+xline(0, 'k:', 'HandleVisibility', 'off')
+yline(0, 'k:', 'HandleVisibility', 'off')
+legend('Location', 'best', 'FontSize', 9)
+
+% Middle panel: road wheel angle (bicycle = average of both)
+del_avg_deg = (d1_deg + d2_deg) / 2;
+
+axes('position', [0.08, 0.33, 0.86, 0.20])
+hold on, grid on
+title({'Bicycle Model Front Wheel Steer Angle  (\delta_{avg}) vs Steering Wheel Angle'}, ...
+    'FontWeight', 'bold')
+xlabel('Steering wheel angle  [deg]  (+: left steer)')
+ylabel('\delta_{avg}  [deg]  (+: left steer)')
+plot(sw_angle_deg, del_avg_deg, 'k-', 'LineWidth', 2, ...
+    'DisplayName', '\delta_{avg} = (\delta_R + \delta_L)/2')
+plot(sw_angle_deg, d1_deg, 'b--', 'LineWidth', 1, 'DisplayName', '\delta_{right}')
+plot(sw_angle_deg, d2_deg, 'r--', 'LineWidth', 1, 'DisplayName', '\delta_{left}')
+xline(0, 'k:', 'HandleVisibility', 'off')
+yline(0, 'k:', 'HandleVisibility', 'off')
+legend('Location', 'best', 'FontSize', 9)
+
+% Bottom panel: residuals
+axes('position', [0.08, 0.10, 0.86, 0.16])
+hold on, grid on
+title('SR_{avg} Residuals  (raw - fitted)', 'FontWeight', 'bold')
+xlabel('Steering wheel angle  [deg]')
+ylabel('Residual  [-]')
+stem(sw_fit_avg, sr_fit_avg - polyval(p_avg, sw_fit_avg), 'k', ...
+    'filled', 'MarkerSize', 4, 'DisplayName', 'Residual SR_{avg}')
+yline(0, 'k-', 'LineWidth', 1, 'HandleVisibility', 'off')
+xline(0, 'k:', 'HandleVisibility', 'off')
+legend('Location', 'best', 'FontSize', 9)
+
+bicy_ribbon = {
+    ['Bicycle model SR: arithmetic mean of right and left road wheel steering ratios'], ...
+    ['Degree-', num2str(poly_degree_avg), ' polynomial fit  |  R² = ', ...
+     sprintf('%.5f', R2_avg), '  |  SR_avg at centre = ', ...
+     sprintf('%.4f', SR_avg_centre)], ...
+    'SR(SW) = SW_angle / delta_avg  —  single equivalent front wheel for vehicle dynamics', ...
+    'Coefficients and anonymous function printed in Command Window'
+};
+add_sign_box(bicy_ribbon, wheel_side)
+
+%% -----------------------------------------------------------------------
 %  FIGURE 7: Polynomial Fit  (was Figure 6)
 %% -----------------------------------------------------------------------
 figure('Name', 'Figure 7 - Polynomial Fit: Steering Ratio vs SW Angle')
