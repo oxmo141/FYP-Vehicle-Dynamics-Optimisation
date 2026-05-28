@@ -17,16 +17,20 @@ rearunsprung.m = 9.247;
 %% Car/ Sprung (Appendix A: diagram of car parameters)
 car.wheelbase = 1.558;
 car.track = 1.21;
-car.cgh = 0.3;
+car.cgh = 0.303736;
 car.r_wheel = 0.2032;
 car.m_sprung = car.m - 2*frontunsprung.m - 2*rearunsprung.m;
+car.rollover = (car.track * 0.5) / car.cgh;
 
 car.b = (car.wheelbase * car.m * weight_distribution) / car.m;
 car.a = car.wheelbase - car.b;
 
 %% Sprung mass of 1 corner
 frontsprung.m = (0.5 * (weight_distribution) * car.m) - frontunsprung.m;
-rearsprung.m = (0.5 * ((100-weight_distribution)) * car.m) - rearunsprung.m;
+rearsprung.m = (0.5 * ((1-weight_distribution)) * car.m) - rearunsprung.m;
+
+frontunsprung.percentage = (frontunsprung.m / (frontunsprung.m + frontsprung.m)) * 100;
+rearunsprung.percentage = (rearunsprung.m / (rearunsprung.m + rearsprung.m)) * 100;
 
 %% Chassis and Suspension Stiffness 
 car.TR = (3047.62 + 2912.586)/2 * 180/pi; 
@@ -72,6 +76,6 @@ rear.ARB_setting = (rear.target_ARB - min(rear.ARB)) / ...
                     (min(rear.ARB) + max(rear.ARB)); 
 
 %% Natural Frequency and Critical Damping
-% frontsprung.omega = (1/(2*pi)) * sqrt(front.Kr/car.m_sprung);
-% rearsprung.omega =  (1/(2*pi)) * sqrt(rear.Kr/car.m_sprung);
+frontunsprung.hop_freq = (1/(2*pi)) * sqrt(front.Kr / frontunsprung.m);
+rearunsprung.hop_freq =  (1/(2*pi)) * sqrt(rear.Kr / rearunsprung.m);
 

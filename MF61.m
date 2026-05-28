@@ -1,6 +1,43 @@
 % Adapted from MFeval
 
-function [Fx, Fy] = MF61(Fz, kappa, alpha, gamma, Vcx, pres, tirParams)   
+function [Fx, Fy] = MF61(Fz, kappa, alpha, gamma, Vcx, pres, tirParams)
+    %% Sign Conventions (ISO)
+    % This implementation uses the ISO sign convention throughout.
+    % Note: Pacejka's original book uses "adapted SAE"; this code has been
+    % converted to ISO (see comment near Vsy calculation below).
+    %
+    % Slip Angle (alpha):
+    %   Positive = tire pointing RIGHT relative to the velocity vector (nose-right).
+    %   Defined as: alpha = arctan(-Vy / Vx) in ISO.
+    %
+    % Lateral Force (Fy):
+    %   Positive = pointing LEFT (positive Y in ISO / toward the inside of a
+    %   left-hand turn when the vehicle moves forward).
+    %   A positive slip angle generates a positive (leftward) lateral force
+    %   when Vcx > 0. For Vcx < 0, Fy is negated (see: Fy(Vcx < 0) = -Fy(...)).
+    %
+    % Longitudinal Force (Fx):
+    %   Positive = forward (driving / tractive force).
+    %   Negative = braking force.
+    %   Slip ratio kappa: positive = driving, negative = braking.
+    %
+    % Camber / Inclination Angle (gamma):
+    %   Positive = top of tire leaning to the RIGHT (positive Y axis).
+    %
+    % Vehicle Sideslip Angle (beta) — not computed here, caller's responsibility:
+    %   ISO convention: beta = arctan(Vy / Vx), positive = nose-left.
+    %   For a single-track model, pass alpha = delta - beta per wheel.
+    %
+    % Centripetal Acceleration (derived, not computed here):
+    %   Left-hand turn => positive yaw rate (psi_dot > 0).
+    %   Centripetal acceleration points toward the centre of curvature.
+    %   Required lateral force is positive Fy (ISO) to maintain circular path.
+    %
+    % Reference: Pacejka, "Tyre and Vehicle Dynamics", 3rd Ed.
+    %            Equations labelled (4.EXX) refer to that book.
+    %            ISO sign convention applies; adapted SAE used in the book
+    %            requires a sign flip on Vsy — omitted here (see Eqn 4.E3).
+
     %% Set Constraints To Data
     useLimitsCheck = 1;
     prt = 0;
@@ -363,7 +400,7 @@ function [Fx, Fy] = MF61(Fz, kappa, alpha, gamma, Vcx, pres, tirParams)
         By = Kya./(Cy.*Dy + epsilony.*signDy); % (4.E26) [sign(Dy) term explained on page 177]
         Fy = Dy .* sin(Cy.*atan(By.*alphay-Ey.*(By.*alphay - atan(By.*alphay))))+ SVy; % (4.E19)
     
-        Fy(Vcx < 0) = -Fy(Vcx < 0);
+        Fy(Vcx < 0) = -Fy(Vcx < 0); % ISO sign convention: negate Fy when reversing
 
     else
         % CFa_Fz (Kya) and CFg_Fz(Kyg0) with Fz as input
@@ -405,6 +442,6 @@ function [Fx, Fy] = MF61(Fz, kappa, alpha, gamma, Vcx, pres, tirParams)
         signDy(signDy == 0) = 1; % If [Dy = 0] then [sign(0) = 0]. This is done to avoid [Kya / 0 = NaN] in Eqn 4.E26
         By = Kya./(Cy.*Dy + epsilony.*signDy); % (4.E26) [sign(Dy) term explained on page 177]
         Fy0eq = Dy .* sin(Cy.*atan(By.*alphay-Ey.*(By.*alphay - atan(By.*alphay))))+ SVy; % (4.E19)
-        Fy0eq(Vcx < 0) = -Fy0eq(Vcx < 0);
+        Fy0eq(Vcx < 0) = -Fy0eq(Vcx < 0); % ISO sign convention: negate Fy when reversing
         Fy = phix * (mux*Fz)/(mux0*Fz0)*Fy0eq; % (4.45 page 164)
     end
