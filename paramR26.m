@@ -14,6 +14,7 @@ YAW_INERTIA = 226.2991478;
 frontunsprung.m = 9.3778;
 rearunsprung.m = 9.247;
 
+car.m_unsprung = (frontunsprung.m + rearunsprung.m) * 2;
 %% Car/ Sprung (Appendix A: diagram of car parameters)
 car.wheelbase = 1.558;
 car.track = 1.21;
@@ -31,6 +32,11 @@ rearsprung.m = (0.5 * ((1-weight_distribution)) * car.m) - rearunsprung.m;
 
 frontunsprung.percentage = (frontunsprung.m / (frontunsprung.m + frontsprung.m)) * 100;
 rearunsprung.percentage = (rearunsprung.m / (rearunsprung.m + rearsprung.m)) * 100;
+
+car.sprungCGH = (car.m / car.m_sprung) * car.cgh - (2 * frontunsprung.m / car.m_sprung) * car.r_wheel ...
+            - (2 * rearunsprung.m / car.m_sprung) * car.r_wheel;
+car.sprung_b = (car.m * car.b - 2 * frontunsprung.m * car.wheelbase) / car.m_sprung;
+car.sprung_a = car.wheelbase - car.sprung_b;
 
 %% Chassis and Suspension Stiffness 
 car.TR = (3047.62 + 2912.586)/2 * 180/pi; 
