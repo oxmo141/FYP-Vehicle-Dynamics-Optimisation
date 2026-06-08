@@ -272,20 +272,20 @@ fprintf('=======================================================================
 %  HELPER: apply black theme to current axes
 %% -----------------------------------------------------------------------
 function apply_dark(ax)
-    set(ax, 'Color', 'k', 'XColor', 'w', 'YColor', 'w', ...
-            'GridColor', 'w', 'GridAlpha', 0.15, 'MinorGridColor', 'w');
-    ax.Title.Color  = 'w';
-    ax.XLabel.Color = 'w';
-    ax.YLabel.Color = 'w';
+    set(ax, 'Color', 'w', 'XColor', 'k', 'YColor', 'k', ...
+            'GridColor', [0.15 0.15 0.15], 'GridAlpha', 0.15, 'MinorGridColor', [0.15 0.15 0.15]);
+    ax.Title.Color  = 'k';
+    ax.XLabel.Color = 'k';
+    ax.YLabel.Color = 'k';
     lg = ax.Legend;
     if ~isempty(lg)
-        set(lg, 'Color', [0.1 0.1 0.1], 'TextColor', 'w', 'EdgeColor', 'w');
+        set(lg, 'Color', 'w', 'TextColor', 'k', 'EdgeColor', 'k');
     end
 end
 
 function fig = dark_figure(num)
     fig = figure(num); clf;
-    set(fig, 'Color', 'k', 'InvertHardcopy', 'off');
+    set(fig, 'Color', 'w', 'InvertHardcopy', 'off');
 end
 
 %% -----------------------------------------------------------------------
@@ -297,7 +297,7 @@ for k = 1:num_cases
 end
 yl = yline(target_phi_f*180/pi, '--', 'LineWidth', 1.5, ...
     'DisplayName', sprintf('Front SS Target (%.3f deg)', target_phi_f*180/pi));
-yl.Color = 'w';
+yl.Color = 'k';
 xlabel('Time (s)'); ylabel('Roll Angle (deg)');
 title('Front Roll Angle — All Overshoot Cases');
 legend('Location', 'best'); grid on; hold off;
@@ -312,7 +312,7 @@ for k = 1:num_cases
 end
 yl = yline(target_phi_r*180/pi, '--', 'LineWidth', 1.5, ...
     'DisplayName', sprintf('Rear SS Target (%.3f deg)', target_phi_r*180/pi));
-yl.Color = 'w';
+yl.Color = 'k';
 xlabel('Time (s)'); ylabel('Roll Angle (deg)');
 title('Rear Roll Angle — All Overshoot Cases');
 legend('Location', 'best'); grid on; hold off;
@@ -439,8 +439,8 @@ zeta_r_vals = [results.zeta_r];
 bar(x_pos - bar_width/2, zeta_f_vals, bar_width, 'FaceColor', [0.3 0.7 0.5], 'DisplayName', 'Front zeta');
 hold on;
 bar(x_pos + bar_width/2, zeta_r_vals, bar_width, 'FaceColor', [0.8 0.5 0.1], 'DisplayName', 'Rear zeta');
-yl1 = yline(1.0, '--', 'Critical (zeta=1)', 'LineWidth', 1.5); yl1.Color = 'w';
-yl2 = yline(0.7, ':',  'zeta=0.7',          'LineWidth', 1.2); yl2.Color = 'w';
+yl1 = yline(1.0, '--', 'Critical (zeta=1)', 'LineWidth', 1.5); yl1.Color = 'k';
+yl2 = yline(0.7, ':',  'zeta=0.7',          'LineWidth', 1.2); yl2.Color = 'k';
 set(gca, 'XTick', x_pos, 'XTickLabel', case_labels);
 ylabel('Damping Ratio zeta (-)');
 title('Damping Ratio — All Cases');
@@ -448,7 +448,7 @@ legend('Location', 'best'); grid on; hold off;
 apply_dark(gca);
 
 sg = sgtitle('System Dynamics: Damping Ratio — All Overshoot Cases');
-sg.Color = 'w';
+sg.Color = 'k';
 
 %% -----------------------------------------------------------------------
 %  FIGURE 20: Achieved Overshoot vs Target
@@ -568,13 +568,13 @@ grid(ax_r, 'on'); legend(ax_r, 'Location', 'best'); hold(ax_r, 'off');
 apply_dark(ax_r);
 
 sg21 = sgtitle('Sensitivity Study: Overshoot Percentage vs. Rise Time');
-sg21.Color = 'w';
+sg21.Color = 'k';
 
 % Bottom: table axes occupying lower third
 ax_tbl = axes('Parent', fig21, ...
               'Position', [0.01, 0.01, 0.98, 0.36], ...
               'XLim', [0 1], 'YLim', [0 1], ...
-              'Color', 'k', 'XColor', 'k', 'YColor', 'k', ...
+              'Color', 'w', 'XColor', 'w', 'YColor', 'w', ...
               'TickLength', [0 0]);
 hold(ax_tbl, 'on');
 axis(ax_tbl, 'off');
@@ -587,24 +587,24 @@ row_h    = 0.155;
 % Table title
 text(ax_tbl, 0.5, 0.97, 'Rise Time Sensitivity  -  % Increase per 5% Overshoot Step', ...
     'HorizontalAlignment', 'center', ...
-    'Color', 'w', 'FontSize', 10, 'FontWeight', 'bold', 'FontName', 'Courier New');
+    'Color', 'k', 'FontSize', 10, 'FontWeight', 'bold', 'FontName', 'Courier New');
 
 % Header background + text
 rectangle(ax_tbl, 'Position', [0.005, header_y - row_h*0.78, 0.99, row_h*0.82], ...
-    'FaceColor', [0.18 0.18 0.18], 'EdgeColor', [0.5 0.5 0.5], 'LineWidth', 1);
+    'FaceColor', [0.20 0.35 0.60], 'EdgeColor', [0.3 0.3 0.3], 'LineWidth', 1);
 for c = 1:7
     text(ax_tbl, col_cx(c), header_y - row_h*0.30, col_headers{c}, ...
         'HorizontalAlignment', 'center', ...
-        'Color', [1.0 0.85 0.2], 'FontSize', 8.5, ...
+        'Color', [1.0 1.0 1.0], 'FontSize', 8.5, ...
         'FontWeight', 'bold', 'FontName', 'Courier New');
 end
 
 % Data rows
 for r = 1:n
     y_top_row = header_y - r * row_h;
-    bg = [0.09 0.09 0.09] * (1 + mod(r,2)*0.5);
+    bg = [1.0 1.0 1.0] - mod(r,2)*[0.07 0.05 0.02];
     rectangle(ax_tbl, 'Position', [0.005, y_top_row - row_h*0.78, 0.99, row_h*0.82], ...
-        'FaceColor', bg, 'EdgeColor', [0.25 0.25 0.25], 'LineWidth', 0.5);
+        'FaceColor', bg, 'EdgeColor', [0.75 0.75 0.75], 'LineWidth', 0.5);
 
     for c = 1:7
         txt = table_str{r,c};
@@ -614,8 +614,8 @@ for r = 1:n
             elseif ~isnan(num_val) && num_val < 0;  tc = [1.0 0.4 0.4];
             else;                                    tc = 'w';
             end
-        elseif c == 1;  tc = [0.55 0.85 1.0];
-        else;           tc = 'w';
+        elseif c == 1;  tc = [0.10 0.30 0.65];
+        else;           tc = 'k';
         end
         text(ax_tbl, col_cx(c), y_top_row - row_h*0.30, txt, ...
             'HorizontalAlignment', 'center', ...
@@ -627,6 +627,6 @@ end
 % Bottom divider
 bottom_y = header_y - (n+1)*row_h + row_h*0.05;
 line(ax_tbl, [0.005, 0.995], [bottom_y, bottom_y], ...
-    'Color', [0.5 0.5 0.5], 'LineWidth', 1);
+    'Color', [0.3 0.3 0.3], 'LineWidth', 1);
 
 hold(ax_tbl, 'off');

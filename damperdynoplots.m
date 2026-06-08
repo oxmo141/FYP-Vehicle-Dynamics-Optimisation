@@ -29,7 +29,7 @@
 clear; clc; close all;
 
 %% ── Configuration ────────────────────────────────────────────────────────
-MAT_FILE      = 'RR_18_fullhighspeedsweep.mat';
+MAT_FILE      = 'RR_25_26_high_speed_sweep.mat';
 N_BINS        = 60;     % velocity bins for F-V extraction
 VEL_THRESHOLD = 5;      % mm/s  — ignore data within this band of zero
 PERCENTILE    = 90;     % robust peak: use top/bottom N% of forces per bin
@@ -152,16 +152,13 @@ for i = 1:n_runs
 end
 
 %% ── Determine overall wheel label for figure titles ──────────────────────
-% Build a wheel label covering all unique wheels present in this .mat file
 all_wheel_codes = unique({res.wheel_code}, 'stable');
 all_wheel_longs = unique({res.wheel_long}, 'stable');
 if numel(all_wheel_codes) == 1
-    % Single wheel — use detailed label
     wheel_code_all = all_wheel_codes{1};
     wheel_long_all = all_wheel_longs{1};
     WHEEL_PREFIX   = sprintf('[%s — %s]', wheel_code_all, wheel_long_all);
 else
-    % Multiple wheels — list them all
     WHEEL_PREFIX = sprintf('[%s]', strjoin(all_wheel_codes, ' / '));
 end
 
@@ -187,24 +184,20 @@ fprintf('Units: C_ls, C_hs in N·s/mm = kN·s/m.  V_knee in mm/s.\n');
 fprintf('Bi-linear model: F = C_ls·v (v ≤ V_knee); F = F_knee + C_hs·(v−V_knee) (v > V_knee)\n\n');
 
 %% ── Figure 1: plots (2×2 grid) ───────────────────────────────────────────
-% Row 1 : F-V Compression  |  F-V Rebound
-% Row 2 : Bar Compression  |  Bar Rebound
-
 TITLE_STR = sprintf('%s  High Speed Sweep — Bi-linear Damping Coefficient Analysis', ...
                     WHEEL_PREFIX);
 
 fig = figure('Name', sprintf('%s Damper Dyno Analysis', WHEEL_PREFIX), ...
-             'Color','k', 'Position', [30 30 1600 820]);
+             'Color','w', 'Position', [30 30 1600 820]);
 
-% Overall figure title — white text on black
 annotation(fig, 'textbox', [0 0.955 1 0.04], ...
     'String', TITLE_STR, 'FontSize', 14, 'FontWeight', 'bold', ...
     'HorizontalAlignment', 'center', 'EdgeColor', 'none', ...
-    'FitBoxToText', 'off', 'BackgroundColor', 'none', 'Color', 'w');
+    'FitBoxToText', 'off', 'BackgroundColor', 'none', 'Color', 'k');
 
 % ── Row 1: F-V plots ──────────────────────────────────────────────────────
-ax_fv_c = subplot('Position', [0.05  0.55  0.42  0.38]);   % comp F-V
-ax_fv_r = subplot('Position', [0.55  0.55  0.42  0.38]);   % reb  F-V
+ax_fv_c = subplot('Position', [0.05  0.55  0.42  0.38]);
+ax_fv_r = subplot('Position', [0.55  0.55  0.42  0.38]);
 
 axes_list  = {ax_fv_c, ax_fv_r};
 curve_tags = {'Compression','Rebound'};
@@ -213,13 +206,13 @@ legend_h   = gobjects(n_runs,1);
 for side = 1:2
     ax = axes_list{side};
     hold(ax,'on'); grid(ax,'on');
-    ax.Color           = [0.08 0.08 0.08];   % near-black plot area
+    ax.Color           = 'w';
     ax.GridLineStyle   = '--';
     ax.GridAlpha       = 0.25;
     ax.GridColor       = [0.55 0.55 0.55];
-    ax.MinorGridColor  = [0.35 0.35 0.35];
-    ax.XColor          = [0.85 0.85 0.85];
-    ax.YColor          = [0.85 0.85 0.85];
+    ax.MinorGridColor  = [0.75 0.75 0.75];
+    ax.XColor          = 'k';
+    ax.YColor          = 'k';
     ax.FontSize        = 10;
     ax.Box             = 'on';
     ax.BoxStyle        = 'back';
@@ -248,29 +241,29 @@ for side = 1:2
              'LineWidth', 0.8, 'HandleVisibility','off');
     end
     xlim(ax,[0 inf]); ylim(ax,[0 inf]);
-    xlabel(ax,'Absolute Velocity (mm/s)', 'FontSize',10, 'Color',[0.85 0.85 0.85]);
-    ylabel(ax,'Force (N)', 'FontSize',10, 'Color',[0.85 0.85 0.85]);
+    xlabel(ax,'Absolute Velocity (mm/s)', 'FontSize',10, 'Color','k');
+    ylabel(ax,'Force (N)', 'FontSize',10, 'Color','k');
     title(ax, sprintf('%s  %s — F vs |V| with Bi-linear Fit', WHEEL_PREFIX, curve_tags{side}), ...
-          'FontSize',11, 'FontWeight','bold', 'Color','w');
+          'FontSize',11, 'FontWeight','bold', 'Color','k');
     text(ax, 0.99, 0.03, char(9670) + " = knee / transition", 'Units','normalized', ...
-         'HorizontalAlignment','right', 'FontSize',7.5, 'Color',[0.6 0.6 0.6]);
+         'HorizontalAlignment','right', 'FontSize',7.5, 'Color',[0.4 0.4 0.4]);
 end
 lgd = legend(ax_fv_c, legend_h, {res.label}, 'Location','northwest', 'FontSize',7.5, ...
-             'TextColor','w', 'Color',[0.12 0.12 0.12], 'EdgeColor',[0.4 0.4 0.4]);
+             'TextColor','k', 'Color','w', 'EdgeColor',[0.4 0.4 0.4]);
 lgd.Title.String   = 'Setting';
 lgd.Title.FontSize = 8;
-lgd.Title.Color    = [0.85 0.85 0.85];
+lgd.Title.Color    = 'k';
 
 % ── Row 2: Bar charts ─────────────────────────────────────────────────────
-ax_bar_c = subplot('Position', [0.05  0.07  0.42  0.40]);   % comp bars
-ax_bar_r = subplot('Position', [0.55  0.07  0.42  0.40]);   % reb  bars
+ax_bar_c = subplot('Position', [0.05  0.07  0.42  0.40]);
+ax_bar_r = subplot('Position', [0.55  0.07  0.42  0.40]);
 
 draw_bar_panel(ax_bar_c, res, CMAP, 'comp', WHEEL_PREFIX);
 draw_bar_panel(ax_bar_r, res, CMAP, 'reb',  WHEEL_PREFIX);
 
 %% ── Figure 2: Summary table (dedicated window) ───────────────────────────
 fig_tbl = figure('Name', sprintf('%s Damping Coefficient Table', WHEEL_PREFIX), ...
-                 'Color','w', 'Position', [60 60 1500 140 + n_runs*80]);
+                 'Color','w', 'Position', [60 60 1500 200 + n_runs*100]);
 ax_tbl = axes('Parent', fig_tbl, 'Position', [0.01 0.02 0.98 0.90]);
 draw_summary_table(ax_tbl, res, CMAP, WHEEL_PREFIX);
 
@@ -425,13 +418,11 @@ function draw_summary_table(ax, res, CMAP, wheel_prefix)
 
     BANNER_H = 0.07;
     HDR_H    = 0.20;
-    ROW_H    = (1.0 - BANNER_H - HDR_H) / n_runs;
+    ROW_H    = (0.88 - BANNER_H - HDR_H) / n_runs;
 
-    % Use the axes passed in — no new figure
     axis(ax,'off'); hold(ax,'on');
     ax.XLim = [0 1]; ax.YLim = [0 1];
 
-    % ── Figure title (FontSize 20 → was 15) ──────────────────────────────
     text(ax, 0.5, 1.04, ...
          sprintf('%s  Damper Dyno -- Bi-linear Damping Coefficient Summary', wheel_prefix), ...
          'HorizontalAlignment','center','VerticalAlignment','bottom', ...
@@ -449,7 +440,6 @@ function draw_summary_table(ax, res, CMAP, wheel_prefix)
         bl = banner_info{bb,3}; bg = banner_info{bb,4};
         rectangle('Parent',ax,'Position',[bx banner_y bw BANNER_H], ...
                   'FaceColor',bg,'EdgeColor','none');
-        % ── Section banner labels (FontSize 17 → was 13) ─────────────────
         text(ax, bx+bw/2, banner_y+BANNER_H/2, bl, ...
              'HorizontalAlignment','center','VerticalAlignment','middle', ...
              'FontSize',17,'FontWeight','bold','Color','w', ...
@@ -479,7 +469,6 @@ function draw_summary_table(ax, res, CMAP, wheel_prefix)
         lw = 1.5; ec = [0.15 0.15 0.15];
         rectangle('Parent',ax,'Position',[x_cur y_hdr cw HDR_H], ...
                   'FaceColor',bg,'EdgeColor',ec,'LineWidth',lw);
-        % ── Column header labels (FontSize 14 → was 11) ──────────────────
         text(ax, x_cur+cw/2, y_hdr+HDR_H/2, hdr_labels{ci}, ...
              'HorizontalAlignment','center','VerticalAlignment','middle', ...
              'FontSize',14,'FontWeight','bold','Color','w', ...
@@ -524,7 +513,6 @@ function draw_summary_table(ax, res, CMAP, wheel_prefix)
 
             rectangle('Parent',ax,'Position',[x_cur y_row cw ROW_H], ...
                       'FaceColor',bg,'EdgeColor',ec,'LineWidth',lw);
-            % ── Data cell text (FontSize 15 → was 12) ────────────────────
             text(ax, x_cur+cw/2, y_row+ROW_H/2, cell_texts{ci}, ...
                  'HorizontalAlignment','center','VerticalAlignment','middle', ...
                  'FontSize',15,'FontWeight',fw,'Color',fg, ...
@@ -534,7 +522,6 @@ function draw_summary_table(ax, res, CMAP, wheel_prefix)
     end
 
     foot_y = y_hdr - n_runs*ROW_H - 0.01;
-    % ── Footer note (FontSize 13 → was 10) ───────────────────────────────
     text(ax, 0.5, foot_y, ...
          ['C_ls = low-speed damping coeff.  |  V_knee = transition velocity  |  ' ...
           'C_hs = high-speed damping coeff.  |  R^2 = bi-linear fit quality'], ...
@@ -563,16 +550,15 @@ function draw_bar_panel(ax, res, CMAP, side, wheel_prefix)
 
     n_runs = numel(res);
 
-    % Use the axes passed in — no new figure
     hold(ax,'on');
-    ax.Color         = [0.08 0.08 0.08];   % near-black plot area
+    ax.Color         = 'w';
     ax.FontSize      = 11;
     ax.Box           = 'on';
     ax.GridLineStyle = '--';
     ax.GridAlpha     = 0.25;
     ax.GridColor     = [0.55 0.55 0.55];
-    ax.XColor        = [0.85 0.85 0.85];
-    ax.YColor        = [0.85 0.85 0.85];
+    ax.XColor        = 'k';
+    ax.YColor        = 'k';
 
     W     = 0.30;
     GAP   = 0.10;
@@ -586,7 +572,6 @@ function draw_bar_panel(ax, res, CMAP, side, wheel_prefix)
 
     for i = 1:n_runs
         col  = CMAP(i,:);
-        bright = min(col + 0.25, 1);   % lighter shade for labels on dark bg
         x_ls = x_ctr(i) - (W/2 + GAP/2);
         x_hs = x_ctr(i) + (W/2 + GAP/2);
 
@@ -604,10 +589,10 @@ function draw_bar_panel(ax, res, CMAP, side, wheel_prefix)
         pad = y_max * 0.025;
         text(ax, x_ls, ls_vals(i) + pad, sprintf('%.0f', ls_vals(i)), ...
              'HorizontalAlignment','center', 'VerticalAlignment','bottom', ...
-             'FontSize',12, 'FontWeight','bold', 'Color', bright);
+             'FontSize',12, 'FontWeight','bold', 'Color', [0.1 0.1 0.1]);
         text(ax, x_hs, hs_vals(i) + pad, sprintf('%.0f', hs_vals(i)), ...
              'HorizontalAlignment','center', 'VerticalAlignment','bottom', ...
-             'FontSize',12, 'FontWeight','bold', 'Color', bright);
+             'FontSize',12, 'FontWeight','bold', 'Color', [0.1 0.1 0.1]);
     end
 
     grid(ax,'on');
@@ -619,41 +604,38 @@ function draw_bar_panel(ax, res, CMAP, side, wheel_prefix)
 
     for i = 1:n_runs
         col_i = CMAP(i,:);
-        % Wheel code — bold, run colour
         text(ax, x_ctr(i), -y_max * 0.045, ...
              res(i).wheel_code, ...
              'HorizontalAlignment','center', 'VerticalAlignment','top', ...
              'FontSize',12, 'FontWeight','bold', 'Color', col_i, ...
              'Interpreter','none');
-        % Adjuster settings — light grey on dark background
         text(ax, x_ctr(i), -y_max * 0.095, ...
              sprintf('HSc%d / HSr%d\nLSc%d / LSr%d', ...
                      res(i).hs_c, res(i).hs_r, res(i).ls_c, res(i).ls_r), ...
              'HorizontalAlignment','center', 'VerticalAlignment','top', ...
-             'FontSize',9, 'FontWeight','normal', 'Color', [0.72 0.72 0.72], ...
+             'FontSize',9, 'FontWeight','normal', 'Color', [0.30 0.30 0.30], ...
              'Interpreter','none');
-        % V_knee annotation
         text(ax, x_ctr(i), -y_max * 0.195, ...
              sprintf('V_{kn}: %.0f mm/s', vk_vals(i)), ...
              'HorizontalAlignment','center', 'VerticalAlignment','top', ...
-             'FontSize',9, 'Color',[0.55 0.55 0.55], 'FontAngle','italic');
+             'FontSize',9, 'Color',[0.35 0.35 0.35], 'FontAngle','italic');
     end
 
-    set(ax, 'XColor', [0.85 0.85 0.85], 'YColor', [0.85 0.85 0.85]);
+    set(ax, 'XColor', 'k', 'YColor', 'k');
 
-    p1 = patch(ax, nan, nan, [0.70 0.70 0.70], ...
+    p1 = patch(ax, nan, nan, [0.50 0.50 0.50], ...
                'FaceAlpha',1.0, 'EdgeColor','none', ...
                'DisplayName','C_{ls}   low-speed slope');
-    p2 = patch(ax, nan, nan, [0.70 0.70 0.70], ...
-               'FaceAlpha',0.30, 'EdgeColor',[0.70 0.70 0.70], ...
+    p2 = patch(ax, nan, nan, [0.50 0.50 0.50], ...
+               'FaceAlpha',0.30, 'EdgeColor',[0.50 0.50 0.50], ...
                'DisplayName','C_{hs}   high-speed slope');
     lgd = legend(ax, [p1 p2], 'Location','northeastoutside', 'FontSize',10, 'Box','on', ...
-                 'TextColor','w', 'Color',[0.12 0.12 0.12], 'EdgeColor',[0.4 0.4 0.4]);
+                 'TextColor','k', 'Color','w', 'EdgeColor',[0.4 0.4 0.4]);
     lgd.Title.String  = 'Coefficient';
-    lgd.Title.Color   = [0.85 0.85 0.85];
+    lgd.Title.Color   = 'k';
 
     xlabel(ax, 'Wheel  /  Setting  (HS comp  |  HS reb  |  LS comp  |  LS reb)', ...
-           'FontSize',11, 'Color',[0.85 0.85 0.85]);
-    ylabel(ax, 'Damping Coefficient  (Ns/m)', 'FontSize',12, 'Color',[0.85 0.85 0.85]);
-    title(ax, ttl, 'FontSize',14, 'FontWeight','bold', 'Color','w');
+           'FontSize',11, 'Color','k');
+    ylabel(ax, 'Damping Coefficient  (Ns/m)', 'FontSize',12, 'Color','k');
+    title(ax, ttl, 'FontSize',14, 'FontWeight','bold', 'Color','k');
 end

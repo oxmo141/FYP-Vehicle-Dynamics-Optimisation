@@ -39,7 +39,6 @@ K_rear  = rear_spring' + rear_ARB;    % 4x100
 %% Create combined figure (Figure 17)
 fig_combined = figure(17);
 fig_combined.Position = [100, 100, 1600, 1200];
-fig_combined.Color = 'k';
 fig_combined.InvertHardcopy = 'off';
 tiledlayout(4, 4, 'Padding', 'compact', 'TileSpacing', 'compact');
 
@@ -104,20 +103,19 @@ for q = 1:size(K_front,1)
 
         % ── Individual figures (1–16) ──────────────────────────────────────
         fig_ind = figure(count);
-        set(fig_ind, 'Color', 'k', 'InvertHardcopy', 'off');
+        set(fig_ind, 'Color', 'w', 'InvertHardcopy', 'off');
         ax_ind = axes();
         contour(ax_ind, weight_distribution_mesh, stiffness_distribution_mesh, ...
                 LLTD_val*100, 10, 'LineWidth', 1.5);
-        set(ax_ind, 'Color', 'k', 'XColor', 'w', 'YColor', 'w', ...
-                    'GridColor', 'w', 'GridAlpha', 0.15);
+        set(ax_ind, 'Color', 'w', 'XColor', 'k', 'YColor', 'k', ...
+            'GridColor', 'k', 'GridAlpha', 0.15);
         colormap(ax_ind, jet)
         cb = colorbar(ax_ind);
-        cb.Color = 'w';
-        t = title(ax_ind, sprintf('Front Spring = %.2f lb/in, Rear Spring = %.2f lb/in', ...
-              front.springs(q), rear.springs(k)));
-        t.Color = 'w';
-        xlabel(ax_ind, 'Static weight dist front [%]', 'Color', 'w');
-        ylabel(ax_ind, 'Stiffness dist front [%]', 'Color', 'w');
+        cb.Color = 'k';
+        title(ax_ind, sprintf('Front Spring = %.2f lb/in, Rear Spring = %.2f lb/in', ...
+        front.springs(q), rear.springs(k)), 'Color', 'k');
+        xlabel(ax_ind, 'Static weight dist front [%]', 'Color', 'k');
+        ylabel(ax_ind, 'Stiffness dist front [%]', 'Color', 'k');
         grid(ax_ind, 'on');
         
         % ── Combined figure (17) ───────────────────────────────────────────
@@ -125,15 +123,14 @@ for q = 1:size(K_front,1)
         ax_tile = nexttile;
         contour(ax_tile, weight_distribution_mesh, stiffness_distribution_mesh, ...
                 LLTD_val*100, 10, 'LineWidth', 1.5);
-        set(ax_tile, 'Color', 'k', 'XColor', 'w', 'YColor', 'w', ...
-                     'GridColor', 'w', 'GridAlpha', 0.15);
+        set(ax_tile, 'Color', 'w', 'XColor', 'k', 'YColor', 'k', ...
+             'GridColor', 'k', 'GridAlpha', 0.15);
         colormap(ax_tile, jet)
         cb17 = colorbar(ax_tile);
-        cb17.Color = 'w';
-        title(ax_tile, sprintf('F: %.2f lb/in, R: %.2f lb/in', ...
-              front.springs(q), rear.springs(k)), 'Color', 'w', 'FontSize', 9);
-        xlabel(ax_tile, 'Weight dist [%]', 'Color', 'w', 'FontSize', 8);
-        ylabel(ax_tile, 'Stiffness dist [%]', 'Color', 'w', 'FontSize', 8);
+        cb17.Color = 'k';
+        title(ax_tile, sprintf('F: %.2f lb/in, R: %.2f lb/in', front.springs(q), rear.springs(k)), 'Color', 'k', 'FontSize', 9);
+        xlabel(ax_tile, 'Weight dist [%]', 'Color', 'k', 'FontSize', 8);
+        ylabel(ax_tile, 'Stiffness dist [%]', 'Color', 'k', 'FontSize', 8);
         grid(ax_tile, 'on');
         
         count = count + 1;

@@ -113,7 +113,7 @@ v_damper_r = omega_rear  * (vehicle.track/2) * vehicle.MR_r * 1000;
 % =========================================================================
 
 % --- Figure 1: Roll Angles ---
-fig1 = figure(1); set_dark_figure(fig1);
+fig1 = figure(1); 
 ax1  = gca;
 plot(ax1, t, roll_front_deg, 'Color', [0.00 0.78 1.00], 'LineWidth', 2.0, 'DisplayName', 'Front'); hold(ax1,'on');
 plot(ax1, t, roll_rear_deg,  'Color', [0.45 1.00 0.30], 'LineWidth', 2.0, 'DisplayName', 'Rear');
@@ -122,34 +122,31 @@ yline(roll_ss(2), '--', 'Color', [1.00 0.82 0.10], 'LineWidth', 1.4, 'DisplayNam
 xlabel(ax1,'Time (s)'); ylabel(ax1,'Roll Angle (deg)');
 title(ax1,'Roll Angles vs Time'); grid(ax1,'on');
 lg1 = legend(ax1,'Location','southeast');
-set_dark_axes(ax1); set_dark_legend(lg1);
 
 % --- Figure 2: Roll Angular Velocities ---
-fig2 = figure(2); set_dark_figure(fig2);
+fig2 = figure(2); 
 ax2  = gca;
 plot(ax2, t, x(:,2)*180/pi, 'Color', [0.00 0.78 1.00], 'LineWidth', 2.0, 'DisplayName', 'Front'); hold(ax2,'on');
 plot(ax2, t, x(:,4)*180/pi, 'Color', [0.45 1.00 0.30], 'LineWidth', 2.0, 'DisplayName', 'Rear');
 xlabel(ax2,'Time (s)'); ylabel(ax2,'Angular Velocity (deg/s)');
 title(ax2,'Roll Angular Velocities vs Time'); grid(ax2,'on');
 lg2 = legend(ax2,'Location','northeast');
-set_dark_axes(ax2); set_dark_legend(lg2);
 
 % --- Figure 3: Damper Linear Velocities ---
-fig3 = figure(3); set_dark_figure(fig3);
+fig3 = figure(3); 
 ax3  = gca;
 plot(ax3, t, v_damper_f, 'Color', [0.00 0.78 1.00], 'LineWidth', 2.0, 'DisplayName', 'Front'); hold(ax3,'on');
 plot(ax3, t, v_damper_r, 'Color', [0.45 1.00 0.30], 'LineWidth', 2.0, 'DisplayName', 'Rear');
 xlabel(ax3,'Time (s)'); ylabel(ax3,'Damper Velocity (mm/s)');
 title(ax3,'Damper Linear Velocity from Roll'); grid(ax3,'on');
 lg3 = legend(ax3,'Location','northeast');
-set_dark_axes(ax3); set_dark_legend(lg3);
 
 % --- Figures 4 & 5: Load Transfer Breakdowns ---
 plot_load_transfer(t, ELT_f_spring, ELT_f_damper, GLT_f_vec, TLT_f, 'Front');
 plot_load_transfer(t, ELT_r_spring, ELT_r_damper, GLT_r_vec, TLT_r, 'Rear');
 
 % --- Figure 6: Total LLT Verification ---
-fig6 = figure(6); set_dark_figure(fig6);
+fig6 = figure(6); 
 ax6  = gca;
 plot(ax6, t, TLT_f,         'Color', [0.00 0.78 1.00], 'LineWidth', 2.0, 'DisplayName', 'Front Total');   hold(ax6,'on');
 plot(ax6, t, TLT_r,         'Color', [0.45 1.00 0.30], 'LineWidth', 2.0, 'DisplayName', 'Rear Total');
@@ -158,7 +155,6 @@ plot(ax6, t, Total_LLT,     'Color', [1.00 0.45 0.05], 'LineWidth', 1.6, 'LineSt
 xlabel(ax6,'Time (s)'); ylabel(ax6,'Load Transfer (N)');
 title(ax6,'Total Lateral Load Transfer Verification'); grid(ax6,'on');
 lg6 = legend(ax6,'Location','southeast');
-set_dark_axes(ax6); set_dark_legend(lg6);
 
 % =========================================================================
 %% FIGURE 7: SUMMARY TABLES
@@ -197,16 +193,16 @@ TLT_f_theoretical = GLT_f + roll_ss(1)*(pi/180) * suspension.kf;
 TLT_r_theoretical = GLT_r + roll_ss(2)*(pi/180) * suspension.kr;
 
 % ---- figure ----
-fig7 = figure(7); set_dark_figure(fig7);
+fig7 = figure(7);
 set(fig7, 'Position', [100 100 1300 750]);
 
-BG      = [0.05  0.06  0.10];
-AX_DARK = [0.07  0.09  0.14];
-HDR_COL = [0.12  0.16  0.26];
-ALT_COL = [0.09  0.12  0.20];
-TXT_W   = [0.92  0.92  0.92];
-TXT_Y   = [1.00  0.82  0.10];
-TXT_G   = [0.45  1.00  0.30];
+BG      = [1.00  1.00  1.00];
+AX_DARK = [1.00  1.00  1.00];
+HDR_COL = [0.20  0.35  0.60];
+ALT_COL = [0.93  0.95  0.98];
+TXT_W   = [0.10  0.10  0.10];   % dark text for row labels & header white text
+TXT_Y   = [0.10  0.35  0.65];   % blue for front data
+TXT_G   = [0.05  0.55  0.25];   % green for rear data
 
 ax7 = axes(fig7, 'Position', [0 0 1 1]);
 set(ax7, 'Color', BG, 'XColor', BG, 'YColor', BG, ...
@@ -261,11 +257,11 @@ t1_total_w = c7x + c7w - c1x;   % 0.470
 text(ax7, c1x + t1_total_w/2, t1_y0 + n_rows*row_h + 0.025, ...
     'DYNAMIC RESPONSE SUMMARY', ...
     'HorizontalAlignment', 'center', 'VerticalAlignment', 'bottom', ...
-    'Color', TXT_W, 'FontSize', 11, 'FontName', 'Arial', 'FontWeight', 'bold');
+    'Color', [0.10 0.10 0.10], 'FontSize', 11, 'FontName', 'Arial', 'FontWeight', 'bold');
 
 headers1 = {'Variable','Front Peak','Front SS','\DeltaFront','Rear Peak','Rear SS','\DeltaRear'};
 for c = 1:7
-    draw_cell(ax7, col_x1(c), t1_y0+(n_rows-1)*row_h, col_w1(c), row_h, HDR_COL, headers1{c}, TXT_W, 11, true);
+    draw_cell(ax7, col_x1(c), t1_y0+(n_rows-1)*row_h, col_w1(c), row_h, HDR_COL, headers1{c}, [1 1 1], 11, true);
 end
 
 row_labels = { ...
@@ -337,7 +333,7 @@ text(ax7, d1x + th_total_w/2, t2_y0 + n_th*th_row_h + 0.025, ...
 
 th_headers = {'Quantity', 'Value', 'Unit'};
 for c = 1:3
-    draw_cell(ax7, th_col_x(c), t2_y0+(n_th-1)*th_row_h, th_col_w(c), th_row_h, HDR_COL, th_headers{c}, TXT_W, 11, true);
+    draw_cell(ax7, th_col_x(c), t2_y0+(n_th-1)*th_row_h, th_col_w(c), th_row_h, HDR_COL, th_headers{c}, [1 1 1], 11, true);
 end
 
 th_data = { ...
@@ -386,7 +382,7 @@ function dxdt = eom(~, x, suspension, I, LAT_G, car, front, rear, frontunsprung,
 end
 
 function plot_load_transfer(t, ELT_spring, ELT_damper, GLT, TLT, location)
-    fig = figure; set_dark_figure(fig);
+    fig = figure;
     ax  = gca;
     plot(ax, t, ELT_spring, 'Color', [0.00 0.78 1.00], 'LineWidth', 2.0, 'DisplayName', 'Elastic Spring'); hold(ax,'on');
     plot(ax, t, ELT_damper, 'Color', [0.45 1.00 0.30], 'LineWidth', 2.0, 'DisplayName', 'Elastic Damper');
@@ -395,7 +391,6 @@ function plot_load_transfer(t, ELT_spring, ELT_damper, GLT, TLT, location)
     xlabel(ax,'Time (s)'); ylabel(ax,'Load Transfer (N)');
     title(ax, sprintf('%s Axle — Load Transfer Breakdown', location)); grid(ax,'on');
     lg = legend(ax,'Location','southeast');
-    set_dark_axes(ax); set_dark_legend(lg);
 end
 
 function compute_rise_time(t, signal_deg, ss_val, label)
@@ -412,47 +407,3 @@ function compute_rise_time(t, signal_deg, ss_val, label)
     end
 end
 
-function set_dark_figure(fig)
-    fig.Color = [0.05 0.06 0.10];
-end
-
-function set_dark_axes(ax)
-    AX_DARK  = [0.07  0.09  0.14];
-    GRID_COL = [0.18  0.22  0.32];
-    TEXT_COL = [0.92  0.92  0.92];
-    TICK_COL = [0.75  0.75  0.80];
-
-    ax.Color              = AX_DARK;
-    ax.XColor             = TICK_COL;
-    ax.YColor             = TICK_COL;
-    ax.ZColor             = TICK_COL;
-    ax.GridColor          = GRID_COL;
-    ax.GridAlpha          = 1.0;
-    ax.GridLineStyle      = '-';
-    ax.MinorGridColor     = GRID_COL;
-    ax.MinorGridAlpha     = 0.5;
-    ax.MinorGridLineStyle = ':';
-    ax.XMinorGrid         = 'on';
-    ax.YMinorGrid         = 'on';
-    ax.Title.Color        = TEXT_COL;
-    ax.Title.FontWeight   = 'bold';
-    ax.Title.FontSize     = 11;
-    ax.XLabel.Color       = TEXT_COL;
-    ax.YLabel.Color       = TEXT_COL;
-    ax.XLabel.FontSize    = 10;
-    ax.YLabel.FontSize    = 10;
-    ax.TickDir            = 'out';
-    ax.TickLength         = [0.008 0.02];
-    ax.LineWidth          = 0.8;
-    ax.FontSize           = 9;
-    ax.FontName           = 'Arial';
-    ax.Box                = 'off';
-end
-
-function set_dark_legend(lg)
-    lg.Color     = [0.07 0.09 0.14];
-    lg.TextColor = [0.92 0.92 0.92];
-    lg.EdgeColor = [0.30 0.35 0.50];
-    lg.FontSize  = 9;
-    lg.FontName  = 'Arial';
-end

@@ -25,7 +25,7 @@ car.rollover = (car.track * 0.5) / car.cgh;
 
 car.b = (car.wheelbase * car.m * weight_distribution) / car.m;
 car.a = car.wheelbase - car.b;
-
+13
 %% Sprung mass of 1 corner
 frontsprung.m = (0.5 * (weight_distribution) * car.m) - frontunsprung.m;
 rearsprung.m = (0.5 * ((1-weight_distribution)) * car.m) - rearunsprung.m;
@@ -80,6 +80,9 @@ front.ARB_setting = (front.target_ARB - min(front.ARB)) / ...
                     (min(front.ARB) + max(front.ARB)); 
 rear.ARB_setting = (rear.target_ARB - min(rear.ARB)) / ...
                     (min(rear.ARB) + max(rear.ARB)); 
+
+front.ARB_percentage = front.target_ARB / (front.k_roll);
+rear.ARB_percentage = rear.target_ARB / (rear.k_roll);
 
 %% Natural Frequency and Critical Damping
 frontunsprung.hop_freq = (1/(2*pi)) * sqrt(front.Kr / frontunsprung.m);

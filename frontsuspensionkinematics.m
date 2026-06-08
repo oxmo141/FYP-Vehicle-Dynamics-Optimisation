@@ -328,8 +328,8 @@ camb_fit     = polyval(p_camb_heave, heave_fit_mm/1000);
 plot(heave_fit_mm, camb_fit, 'k--', 'LineWidth', 1, 'DisplayName', ...
     sprintf('Linear fit: %.2f deg/m', ride_camber_rate_avg))
 yline(0,'k:','HandleVisibility','off'), xline(0,'k:','HandleVisibility','off')
-text(max(heave)*0.1, max(abs(camb_heave))*0.75, 'JOUNCE', 'Color',[0.7 0 0],'FontSize',8,'FontWeight','bold')
-text(min(heave)*0.9, max(abs(camb_heave))*0.75, 'DROOP',  'Color',[0 0 0.7],'FontSize',8,'FontWeight','bold')
+text(max(heave)*0.4, max(abs(camb_heave))*0.75, 'JOUNCE', 'Color',[0.7 0 0],'FontSize',8,'FontWeight','bold')
+text(min(heave)*0.5, max(abs(camb_heave))*0.75, 'DROOP',  'Color',[0 0 0.7],'FontSize',8,'FontWeight','bold')
 legend('Location','southwest','FontSize',9)
 
 axes('position',[0.20, 0.14, 0.55, 0.33])

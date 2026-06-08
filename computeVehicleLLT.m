@@ -88,7 +88,7 @@ function [t, TLTf, TLTr, Total_LLT, roll_angle, front_roll_out, rear_roll_out] =
 
     %% ── Geometric Load Transfer ──────────────────────────────────────────────────
     g_val    = 9.81;
-    wd_front = weight_distribution / 100;
+    wd_front = weight_distribution;
 
     GLTf = (car.m * wd_front       * g_val .* lat_g_out * front.RC) / car.track;
     GLTr = (car.m * (1 - wd_front) * g_val .* lat_g_out * rear.RC)  / car.track;
@@ -108,6 +108,7 @@ function [t, TLTf, TLTr, Total_LLT, roll_angle, front_roll_out, rear_roll_out] =
     if isempty(t) || isempty(TLTf) || isempty(TLTr) || isempty(Total_LLT) || isempty(roll_angle)
         error('Output variables are empty: check input data and calculations.');
     end
+
 end
 
 
